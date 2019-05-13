@@ -136,7 +136,7 @@ while True:
   if uart.in_waiting > 0:
     START_FOUND = False
     TIMED_OUT = False
-
+    # https://learn.adafruit.com/arduino-to-circuitpython/time
     start = monotonic()
     while (not START_FOUND) and (not TIMED_OUT):
       now = monotonic()
