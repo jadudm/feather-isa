@@ -1,6 +1,7 @@
 import usb_midi
 import adafruit_midi
 import board, digitalio, math
+from random import randrange
 from analogio import AnalogIn
 import time, busio
 import neopixel 
@@ -101,6 +102,10 @@ def fill():
     v = buff[0] * 100 + buff[1] * 10 + buff[2]
     return v
 
+# This might be painfully slow. We'll see.
+def twiddle():
+  pixels[0] = (randrange(30, 200), randrange(30, 200), randrange(30, 200))
+
 ###########################
 # FOREVER
 while True:
@@ -120,6 +125,7 @@ while True:
         # print(str(count) + " " + str(ndx))
         # We are pulling high, so send 0 when True and 1 when False
         midi.control_change(ndx, not current_digital[ndx])
+        twiddle()
     # Make sure to update the pin state for all of the digital pins before 
     # dropping out of the loop. This is prev = current.
     update_state()
@@ -139,3 +145,4 @@ while True:
         v  = fill()
         # print(str(cc) + ":" + str(v))
         midi.control_change(cc, abs(v))
+        twiddle()
