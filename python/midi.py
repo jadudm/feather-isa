@@ -1,5 +1,8 @@
 import usb_midi
 import adafruit_midi
+from adafruit_midi.control_change          import ControlChange
+from adafruit_midi.note_off                import NoteOff
+from adafruit_midi.note_on                 import NoteOn
 import board, digitalio, math
 from time import monotonic
 from random import randrange
@@ -8,14 +11,10 @@ import time, busio
 import neopixel 
 
 # Configure the Feather as a MIDI device.
-midi = adafruit_midi.MIDI(midi_out=usb_midi.ports[1], out_channel=0)
+midi = adafruit_midi.MIDI(midi_out=usb_midi.ports[1], midi_in=usb_midi.ports[0], out_channel=0, in_channel = 0)
 
 # Set up the UART for talking to the Micro:Bit
 uart = busio.UART(board.TX, board.RX, baudrate = 115200)
-
-# Why green? I don't know. 
-pixels = neopixel.NeoPixel(board.NEOPIXEL, 1, brightness = 0.1)
-pixels[0] = (0, 60, 0) 
 
 # Pin Configuration
 # We handle some pins as digital, and some as analog.
@@ -103,9 +102,85 @@ def fill(started = False):
     v = buff[0] * 100 + buff[1] * 10 + buff[2]
     return v
 
+
 # This might be painfully slow. We'll see.
+
+
 def twiddle():
-  pixels[0] = (randrange(30, 200), randrange(30, 200), randrange(30, 200))
+  # bneo[0] = (randrange(30, 200), randrange(30, 200), randrange(30, 200))
+  pass
+
+###########################
+# MIDI Protocol
+# Why green? I don't know. 
+NEOPIXEL_LENGTH = 1
+NEOPIXEL_INDEX = 0
+bneo = neopixel.NeoPixel(board.NEOPIXEL, 1, brightness = 0.1)
+ring = neopixel.NeoPixel(board.D4, NEOPIXEL_LENGTH, brightness = 0.1)
+bneo[0] = (0xA0, 0x00, 0xFF) 
+neo = [0, 0, 0]
+
+
+midi_cch = 0
+midi_val = 0
+
+def set_neopixels_in_array ():
+  global midi_cch, midi_val, NEOPIXEL_LENGTH, ring
+  NEOPIXEL_LENGTH = midi_val
+  ring.deinit()
+  ring = neopixel.NeoPixel(board.D4, NEOPIXEL_LENGTH, brightness = 0.1)  
+
+def set_neopixel_color(ndx, v):
+  global midi_cch, midi_val, neo, bneo, ring, NEOPIXEL_INDEX
+  # print("  COLOR " + str(ndx) + " " + str(v))
+  neo[ndx] = v
+  bneo[0] = tuple(neo)
+  ring[NEOPIXEL_INDEX] = tuple(neo)
+  
+def set_neopixel_red():
+  global midi_cch, midi_val
+  set_neopixel_color(0, midi_val * 2)
+
+def set_neopixel_green():
+  global midi_cch, midi_val
+  set_neopixel_color(1, midi_val * 2)
+
+def set_neopixel_blue():
+  global midi_cch, midi_val
+  set_neopixel_color(2, midi_val * 2)
+
+def set_neopixel_index():
+  global midi_cch, midi_val, NEOPIXEL_INDEX
+  # print("NDX " + str(NEOPIXEL_INDEX))
+  NEOPIXEL_INDEX = (midi_val % NEOPIXEL_LENGTH)
+
+def passFun():
+  pass
+
+# https://stackoverflow.com/questions/11479816/what-is-the-python-equivalent-for-a-case-switch-statement
+def midi_protocol (c, v):
+  global midi_cch, midi_val
+  midi_cch = c
+  midi_val = v
+  # print("MIDI C" + str(c) + " V " + str(v))
+  midi_protocol = {
+    120 : set_neopixel_index,
+    121 : passFun, # neopixel_rgb,
+    122 : set_neopixel_red,
+    123 : set_neopixel_green,
+    124 : set_neopixel_blue,
+    125 : passFun, # Will be W for advanced NeoPixels
+    126 : set_neopixels_in_array
+  }
+  if (c >= 120) and (c <= 126):
+    midi_protocol[midi_cch]()
+
+###########################
+# Clear the MIDI stream
+# We don't know who is talking to us. 
+# We'll clear the queue.
+for i in range(0, 5):
+  midi_msg = midi.receive()
 
 ###########################
 # FOREVER
@@ -131,8 +206,13 @@ while True:
     # dropping out of the loop. This is prev = current.
     update_state()
 
-  # If we have any UART data waiting, we should handle it.
+  # Check for MIDI input
+  midi_msg = midi.receive() 
+  if isinstance(midi_msg, ControlChange):
+    midi_protocol(midi_msg.control, midi_msg.value)
+    #print(str(midi_msg.control) + " " + str(midi_msg.value))
 
+  # If we have any UART data waiting, we should handle it.
   if uart.in_waiting > 0:
     START_FOUND = False
     TIMED_OUT = False
@@ -140,7 +220,7 @@ while True:
     start = monotonic()
     while (not START_FOUND) and (not TIMED_OUT):
       now = monotonic()
-      if ((now - start > 0.01)):
+      if ((now - start > 0.005)):
         # print("TIMED OUT")
         TIMED_OUT = True
       data = uart.read(1)
@@ -152,27 +232,3 @@ while True:
       v = fill()
       midi.control_change(cc, abs(v))
       twiddle()
-
-  # if uart.in_waiting > 0:
-  #   FOUND = False
-  #   TIMEOUT = False
-  #   then = monotonic()
-  #   while (not FOUND) and (not TIMEOUT):
-  #     if  ((monotonic() - then) > 0.05):
-  #       TIMEOUT = True
-  #     # Read a single character.
-  #     data = uart.read(1)
-  #     if data is not None:
-  #       if data == b'S':
-  #         FOUND = True
-  #   # If something was there, and it is the start of a transmission, we should 
-  #   # read in a pair of numbers. The first needs to be the control channel, the second
-  #   # needs to be the value that we want to transmit.
-  #   # print("C")
-  #   if not TIMEOUT:
-  #     cc = fill(started = True)
-  #     # print("V")
-  #     v  = fill()
-  #     # print(str(cc) + ":" + str(v))
-  #     midi.control_change(cc, abs(v))
-  #     twiddle()
