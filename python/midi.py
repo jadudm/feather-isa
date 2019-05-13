@@ -1,6 +1,7 @@
 import usb_midi
 import adafruit_midi
 import board, digitalio, math
+from time import monotonic
 from random import randrange
 from analogio import AnalogIn
 import time, busio
@@ -71,10 +72,10 @@ setup_analog_pins()
 
 # Used for converting serial to a number.
 # Probably could be a lot simpler.
-def fill():
+def fill(started = False):
   buff = [-1, -1, -1]
   ndx = 0
-  READ = False
+  READ = started
   while not READ:
     data = uart.read(1) 
     if (data == b'S'):
@@ -131,18 +132,47 @@ while True:
     update_state()
 
   # If we have any UART data waiting, we should handle it.
+
   if uart.in_waiting > 0:
-    # Read a single character.
-    data = uart.read(1)
-    # If something was there, and it is the start of a transmission, we should 
-    # read in a pair of numbers. The first needs to be the control channel, the second
-    # needs to be the value that we want to transmit.
-    if data is not None:
-      if data == b'S':
-        # print("C")
-        cc = fill()
-        # print("V")
-        v  = fill()
-        # print(str(cc) + ":" + str(v))
-        midi.control_change(cc, abs(v))
-        twiddle()
+    START_FOUND = False
+    TIMED_OUT = False
+
+    start = monotonic()
+    while (not START_FOUND) and (not TIMED_OUT):
+      now = monotonic()
+      if ((now - start > 0.01)):
+        # print("TIMED OUT")
+        TIMED_OUT = True
+      data = uart.read(1)
+      # If we find a start condition
+      if (data is not None) and data == b'S':
+        START_FOUND = True
+    if START_FOUND:
+      cc = fill(started = True)
+      v = fill()
+      midi.control_change(cc, abs(v))
+      twiddle()
+
+  # if uart.in_waiting > 0:
+  #   FOUND = False
+  #   TIMEOUT = False
+  #   then = monotonic()
+  #   while (not FOUND) and (not TIMEOUT):
+  #     if  ((monotonic() - then) > 0.05):
+  #       TIMEOUT = True
+  #     # Read a single character.
+  #     data = uart.read(1)
+  #     if data is not None:
+  #       if data == b'S':
+  #         FOUND = True
+  #   # If something was there, and it is the start of a transmission, we should 
+  #   # read in a pair of numbers. The first needs to be the control channel, the second
+  #   # needs to be the value that we want to transmit.
+  #   # print("C")
+  #   if not TIMEOUT:
+  #     cc = fill(started = True)
+  #     # print("V")
+  #     v  = fill()
+  #     # print(str(cc) + ":" + str(v))
+  #     midi.control_change(cc, abs(v))
+  #     twiddle()
