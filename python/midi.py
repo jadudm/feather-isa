@@ -124,29 +124,46 @@ def midi_protocol (c, v):
   global ring, neo, bneo, NEOPIXEL_INDEX, NEOPIXEL_LENGTH
   update = False
   # print("MIDI C " + str(c) + " V " + str(v))
+  
+  ### 119
+  # Clear everything
+  if c == 119:
+    t = (0, 0, 0)
+    for i in range(0, NEOPIXEL_LENGTH):
+      ring[i] = t
+    # Flush some of the buffer. 
+    for i in range(0, 20):
+      midi.receive()
+  ### 120
   # Set neopixel index
-  if c == 120:
+  elif c == 120:
     NEOPIXEL_INDEX = v % NEOPIXEL_LENGTH
     update = True
+  ### 121
   # Pass
   elif c == 121:
     pass
+  ### 122
   # Set Red
   elif c == 122:
     # print("RED")
     neo[0] = (v * 2)
     update = True
+  ### 123
   # Set Blue
   elif c == 123:
     neo[1] = (v * 2)
     update = True
+  ### 124
   # Set Green
   elif c == 124:
     neo[2] = (v * 2)
     update = True
+  ### 125
   # Pass
   elif c == 125:
     pass
+  ### 126
   # Set number of pixels in array.
   elif c == 126:
     NEOPIXEL_LENGTH = v
@@ -177,7 +194,7 @@ def midi_protocol (c, v):
 # Clear the MIDI stream
 # We don't know who is talking to us. 
 # We'll clear the queue.
-for i in range(0, 5):
+for i in range(0, 10):
   midi_msg = midi.receive()
 
 ###########################
