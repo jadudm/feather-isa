@@ -120,60 +120,58 @@ ring = neopixel.NeoPixel(board.D4, NEOPIXEL_LENGTH, brightness = 0.1)
 bneo[0] = (0xA0, 0x00, 0xFF) 
 neo = [0, 0, 0]
 
-
-midi_cch = 0
-midi_val = 0
-
-def set_neopixels_in_array ():
-  global midi_cch, midi_val, NEOPIXEL_LENGTH, ring
-  NEOPIXEL_LENGTH = midi_val
-  ring.deinit()
-  ring = neopixel.NeoPixel(board.D4, NEOPIXEL_LENGTH, brightness = 0.1)  
-
-def set_neopixel_color(ndx, v):
-  global midi_cch, midi_val, neo, bneo, ring, NEOPIXEL_INDEX
-  # print("  COLOR " + str(ndx) + " " + str(v))
-  neo[ndx] = v
-  bneo[0] = tuple(neo)
-  ring[NEOPIXEL_INDEX] = tuple(neo)
-  
-def set_neopixel_red():
-  global midi_cch, midi_val
-  set_neopixel_color(0, midi_val * 2)
-
-def set_neopixel_green():
-  global midi_cch, midi_val
-  set_neopixel_color(1, midi_val * 2)
-
-def set_neopixel_blue():
-  global midi_cch, midi_val
-  set_neopixel_color(2, midi_val * 2)
-
-def set_neopixel_index():
-  global midi_cch, midi_val, NEOPIXEL_INDEX
-  # print("NDX " + str(NEOPIXEL_INDEX))
-  NEOPIXEL_INDEX = (midi_val % NEOPIXEL_LENGTH)
-
-def passFun():
-  pass
-
-# https://stackoverflow.com/questions/11479816/what-is-the-python-equivalent-for-a-case-switch-statement
 def midi_protocol (c, v):
-  global midi_cch, midi_val
-  midi_cch = c
-  midi_val = v
+  global ring, neo, bneo, NEOPIXEL_INDEX, NEOPIXEL_LENGTH
+  update = False
+  # print("MIDI C " + str(c) + " V " + str(v))
+  # Set neopixel index
+  if c == 120:
+    NEOPIXEL_INDEX = v % NEOPIXEL_LENGTH
+    update = True
+  # Pass
+  elif c == 121:
+    pass
+  # Set Red
+  elif c == 122:
+    # print("RED")
+    neo[0] = (v * 2)
+    update = True
+  # Set Blue
+  elif c == 123:
+    neo[1] = (v * 2)
+    update = True
+  # Set Green
+  elif c == 124:
+    neo[2] = (v * 2)
+    update = True
+  # Pass
+  elif c == 125:
+    pass
+  # Set number of pixels in array.
+  elif c == 126:
+    NEOPIXEL_LENGTH = v
+    ring.deinit()
+    neo = [0, 0, 0]
+    ring = neopixel.NeoPixel(board.D4, NEOPIXEL_LENGTH, brightness = 0.1)
+  else:
+    pass
+  
+  if update:
+    ring[NEOPIXEL_INDEX] = tuple(neo)
+    bneo[0] = tuple(neo)
+
   # print("MIDI C" + str(c) + " V " + str(v))
-  midi_protocol = {
-    120 : set_neopixel_index,
-    121 : passFun, # neopixel_rgb,
-    122 : set_neopixel_red,
-    123 : set_neopixel_green,
-    124 : set_neopixel_blue,
-    125 : passFun, # Will be W for advanced NeoPixels
-    126 : set_neopixels_in_array
-  }
-  if (c >= 120) and (c <= 126):
-    midi_protocol[midi_cch]()
+  # midi_protocol = {
+  #   120 : set_neopixel_index,
+  #   121 : passFun, # neopixel_rgb,
+  #   122 : set_neopixel_red,
+  #   123 : set_neopixel_green,
+  #   124 : set_neopixel_blue,
+  #   125 : passFun, # Will be W for advanced NeoPixels
+  #   126 : set_neopixels_in_array
+  # }
+  # if (c >= 120) and (c <= 126):
+  #   midi_protocol[midi_cch]()
 
 ###########################
 # Clear the MIDI stream
@@ -208,9 +206,9 @@ while True:
 
   # Check for MIDI input
   midi_msg = midi.receive() 
-  if isinstance(midi_msg, ControlChange):
-    midi_protocol(midi_msg.control, midi_msg.value)
-    #print(str(midi_msg.control) + " " + str(midi_msg.value))
+  if midi_msg is not None:
+    if isinstance(midi_msg, ControlChange):
+      midi_protocol(midi_msg.control, midi_msg.value)
 
   # If we have any UART data waiting, we should handle it.
   if uart.in_waiting > 0:
