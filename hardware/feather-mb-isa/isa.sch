@@ -13390,7 +13390,6 @@ This footprint was designed to help hold the alignment of a through-hole compone
 <part name="J22" library="SparkFun-Connectors" library_urn="urn:adsk.eagle:library:513" deviceset="CONN_02" device="3.5MM" package3d_urn="urn:adsk.eagle:package:38050/1"/>
 <part name="J23" library="SparkFun-Connectors" library_urn="urn:adsk.eagle:library:513" deviceset="CONN_02" device="3.5MM" package3d_urn="urn:adsk.eagle:package:38050/1"/>
 <part name="J24" library="SparkFun-Connectors" library_urn="urn:adsk.eagle:library:513" deviceset="CONN_02" device="3.5MM" package3d_urn="urn:adsk.eagle:package:38050/1"/>
-<part name="J25" library="SparkFun-Connectors" library_urn="urn:adsk.eagle:library:513" deviceset="CONN_02" device="3.5MM" package3d_urn="urn:adsk.eagle:package:38050/1"/>
 <part name="GND12" library="SparkFun-PowerSymbols" library_urn="urn:adsk.eagle:library:530" deviceset="GND" device=""/>
 <part name="GND13" library="SparkFun-PowerSymbols" library_urn="urn:adsk.eagle:library:530" deviceset="GND" device=""/>
 <part name="MS2" library="adafruit" library_urn="urn:adsk.eagle:library:420" deviceset="FEATHERWING" device="_NODIM" package3d_urn="urn:adsk.eagle:package:6240960/1"/>
@@ -13570,10 +13569,6 @@ This footprint was designed to help hold the alignment of a through-hole compone
 <attribute name="VALUE" x="325.12" y="58.674" size="1.778" layer="96" font="vector"/>
 <attribute name="NAME" x="325.12" y="69.088" size="1.778" layer="95" font="vector"/>
 </instance>
-<instance part="J25" gate="G$1" x="327.66" y="48.26" smashed="yes">
-<attribute name="VALUE" x="325.12" y="43.434" size="1.778" layer="96" font="vector"/>
-<attribute name="NAME" x="325.12" y="53.848" size="1.778" layer="95" font="vector"/>
-</instance>
 <instance part="GND12" gate="1" x="302.26" y="12.7" smashed="yes">
 <attribute name="VALUE" x="302.26" y="12.446" size="1.778" layer="96" align="top-center"/>
 </instance>
@@ -13720,7 +13715,6 @@ This footprint was designed to help hold the alignment of a through-hole compone
 <wire x1="335.28" y1="63.5" x2="337.82" y2="63.5" width="0.1524" layer="91"/>
 <pinref part="GND13" gate="1" pin="GND"/>
 <wire x1="337.82" y1="63.5" x2="337.82" y2="48.26" width="0.1524" layer="91"/>
-<pinref part="J25" gate="G$1" pin="1"/>
 <wire x1="337.82" y1="48.26" x2="337.82" y2="40.64" width="0.1524" layer="91"/>
 <wire x1="335.28" y1="48.26" x2="337.82" y2="48.26" width="0.1524" layer="91"/>
 <junction x="337.82" y="48.26"/>
@@ -14334,7 +14328,6 @@ This footprint was designed to help hold the alignment of a through-hole compone
 <label x="137.16" y="38.1" size="1.016" layer="95" rot="R180" xref="yes"/>
 </segment>
 <segment>
-<pinref part="J25" gate="G$1" pin="2"/>
 <wire x1="335.28" y1="50.8" x2="342.9" y2="50.8" width="0.1524" layer="91"/>
 <label x="342.9" y="50.8" size="1.016" layer="95" xref="yes"/>
 </segment>
