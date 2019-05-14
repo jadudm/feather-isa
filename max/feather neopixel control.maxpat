@@ -10,7 +10,7 @@
 		}
 ,
 		"classnamespace" : "box",
-		"rect" : [ 34.0, 79.0, 922.0, 736.0 ],
+		"rect" : [ 123.0, 79.0, 1095.0, 736.0 ],
 		"bglocked" : 0,
 		"openinpresentation" : 0,
 		"default_fontsize" : 12.0,
@@ -39,59 +39,140 @@
 		"subpatcher_template" : "",
 		"boxes" : [ 			{
 				"box" : 				{
-					"id" : "obj-21",
-					"maxclass" : "slider",
+					"id" : "obj-49",
+					"linecount" : 6,
+					"maxclass" : "comment",
+					"numinlets" : 1,
+					"numoutlets" : 0,
+					"patching_rect" : [ 677.0, 211.5, 151.0, 87.0 ],
+					"text" : "The neopixel2 object is the same as the neopixel, except all inlets are hot. \n\nIf you change any value, it will update all the values. "
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-37",
+					"maxclass" : "comment",
+					"numinlets" : 1,
+					"numoutlets" : 0,
+					"patching_rect" : [ 923.0, 370.0, 31.0, 20.0 ],
+					"text" : "blue"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-38",
+					"maxclass" : "number",
+					"numinlets" : 1,
+					"numoutlets" : 2,
+					"outlettype" : [ "", "bang" ],
+					"parameter_enable" : 0,
+					"patching_rect" : [ 923.0, 393.0, 50.0, 22.0 ]
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-40",
+					"maxclass" : "comment",
+					"numinlets" : 1,
+					"numoutlets" : 0,
+					"patching_rect" : [ 894.0, 315.0, 39.0, 20.0 ],
+					"text" : "green"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-41",
+					"maxclass" : "number",
+					"numinlets" : 1,
+					"numoutlets" : 2,
+					"outlettype" : [ "", "bang" ],
+					"parameter_enable" : 0,
+					"patching_rect" : [ 896.0, 338.0, 50.0, 22.0 ]
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-42",
+					"maxclass" : "comment",
+					"numinlets" : 1,
+					"numoutlets" : 0,
+					"patching_rect" : [ 869.0, 261.0, 26.0, 20.0 ],
+					"text" : "red"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-43",
+					"maxclass" : "comment",
+					"numinlets" : 1,
+					"numoutlets" : 0,
+					"patching_rect" : [ 842.0, 201.0, 37.0, 20.0 ],
+					"text" : "index"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-45",
+					"maxclass" : "number",
+					"numinlets" : 1,
+					"numoutlets" : 2,
+					"outlettype" : [ "", "bang" ],
+					"parameter_enable" : 0,
+					"patching_rect" : [ 869.0, 284.0, 50.0, 22.0 ]
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-46",
+					"maxclass" : "number",
+					"numinlets" : 1,
+					"numoutlets" : 2,
+					"outlettype" : [ "", "bang" ],
+					"parameter_enable" : 0,
+					"patching_rect" : [ 842.0, 225.0, 50.0, 22.0 ]
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-47",
+					"maxclass" : "newobj",
+					"numinlets" : 4,
+					"numoutlets" : 0,
+					"patching_rect" : [ 842.0, 426.0, 100.0, 22.0 ],
+					"text" : "neopixel2"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-33",
+					"maxclass" : "toggle",
 					"numinlets" : 1,
 					"numoutlets" : 1,
-					"outlettype" : [ "" ],
+					"outlettype" : [ "int" ],
 					"parameter_enable" : 0,
-					"patching_rect" : [ 82.0, 481.0, 20.0, 140.0 ]
+					"patching_rect" : [ 489.0, 508.0, 24.0, 24.0 ]
 				}
 
 			}
 , 			{
 				"box" : 				{
-					"id" : "obj-20",
-					"maxclass" : "message",
+					"id" : "obj-23",
+					"maxclass" : "newobj",
 					"numinlets" : 2,
 					"numoutlets" : 1,
-					"outlettype" : [ "" ],
-					"patching_rect" : [ 244.0, 538.0, 50.0, 22.0 ],
-					"text" : "122"
-				}
-
-			}
-, 			{
-				"box" : 				{
-					"id" : "obj-18",
-					"maxclass" : "newobj",
-					"numinlets" : 3,
-					"numoutlets" : 0,
-					"patching_rect" : [ 194.0, 574.0, 100.0, 22.0 ],
-					"text" : "ctlout"
-				}
-
-			}
-, 			{
-				"box" : 				{
-					"id" : "obj-15",
-					"maxclass" : "message",
-					"numinlets" : 2,
-					"numoutlets" : 1,
-					"outlettype" : [ "" ],
-					"patching_rect" : [ 274.0, 431.0, 50.0, 22.0 ],
-					"text" : "120"
-				}
-
-			}
-, 			{
-				"box" : 				{
-					"id" : "obj-1",
-					"maxclass" : "newobj",
-					"numinlets" : 3,
-					"numoutlets" : 0,
-					"patching_rect" : [ 224.0, 475.0, 100.0, 22.0 ],
-					"text" : "ctlout"
+					"outlettype" : [ "bang" ],
+					"patching_rect" : [ 489.0, 545.0, 100.0, 22.0 ],
+					"text" : "metro 100"
 				}
 
 			}
@@ -134,24 +215,12 @@
 , 			{
 				"box" : 				{
 					"id" : "obj-50",
-					"linecount" : 3,
+					"linecount" : 2,
 					"maxclass" : "comment",
 					"numinlets" : 1,
 					"numoutlets" : 0,
-					"patching_rect" : [ 317.0, 513.0, 150.0, 47.0 ],
-					"text" : "set all of your 16 pixels at once with an uzi and a counter. "
-				}
-
-			}
-, 			{
-				"box" : 				{
-					"id" : "obj-48",
-					"maxclass" : "button",
-					"numinlets" : 1,
-					"numoutlets" : 1,
-					"outlettype" : [ "bang" ],
-					"parameter_enable" : 0,
-					"patching_rect" : [ 489.0, 513.0, 24.0, 24.0 ]
+					"patching_rect" : [ 329.0, 508.0, 150.0, 33.0 ],
+					"text" : "set a range of pixels with metro and counter. "
 				}
 
 			}
@@ -174,19 +243,7 @@
 					"numoutlets" : 4,
 					"outlettype" : [ "int", "", "", "int" ],
 					"patching_rect" : [ 489.0, 574.0, 65.0, 22.0 ],
-					"text" : "counter 16"
-				}
-
-			}
-, 			{
-				"box" : 				{
-					"id" : "obj-36",
-					"maxclass" : "newobj",
-					"numinlets" : 2,
-					"numoutlets" : 3,
-					"outlettype" : [ "bang", "bang", "int" ],
-					"patching_rect" : [ 489.0, 545.0, 41.0, 22.0 ],
-					"text" : "uzi 16"
+					"text" : "counter 49"
 				}
 
 			}
@@ -196,7 +253,7 @@
 					"maxclass" : "comment",
 					"numinlets" : 1,
 					"numoutlets" : 0,
-					"patching_rect" : [ 914.0, 237.0, 71.0, 20.0 ],
+					"patching_rect" : [ 1331.0, 266.0, 71.0, 20.0 ],
 					"text" : "color preset"
 				}
 
@@ -209,7 +266,7 @@
 					"numoutlets" : 2,
 					"outlettype" : [ "", "bang" ],
 					"parameter_enable" : 0,
-					"patching_rect" : [ 912.0, 259.0, 50.0, 22.0 ]
+					"patching_rect" : [ 1329.0, 288.0, 50.0, 22.0 ]
 				}
 
 			}
@@ -219,7 +276,7 @@
 					"maxclass" : "comment",
 					"numinlets" : 1,
 					"numoutlets" : 0,
-					"patching_rect" : [ 843.0, 206.0, 37.0, 20.0 ],
+					"patching_rect" : [ 1260.0, 235.0, 37.0, 20.0 ],
 					"text" : "index"
 				}
 
@@ -232,7 +289,7 @@
 					"numoutlets" : 2,
 					"outlettype" : [ "", "bang" ],
 					"parameter_enable" : 0,
-					"patching_rect" : [ 843.0, 230.0, 50.0, 22.0 ]
+					"patching_rect" : [ 1260.0, 259.0, 50.0, 22.0 ]
 				}
 
 			}
@@ -278,7 +335,7 @@
 					"numoutlets" : 2,
 					"outlettype" : [ "", "bang" ],
 					"parameter_enable" : 0,
-					"patching_rect" : [ 541.0, 338.0, 50.0, 22.0 ]
+					"patching_rect" : [ 543.0, 338.0, 50.0, 22.0 ]
 				}
 
 			}
@@ -299,7 +356,7 @@
 					"maxclass" : "comment",
 					"numinlets" : 1,
 					"numoutlets" : 0,
-					"patching_rect" : [ 489.0, 206.0, 37.0, 20.0 ],
+					"patching_rect" : [ 489.0, 201.0, 37.0, 20.0 ],
 					"text" : "index"
 				}
 
@@ -324,19 +381,19 @@
 					"numoutlets" : 2,
 					"outlettype" : [ "", "bang" ],
 					"parameter_enable" : 0,
-					"patching_rect" : [ 489.0, 230.0, 50.0, 22.0 ]
+					"patching_rect" : [ 489.0, 225.0, 50.0, 22.0 ]
 				}
 
 			}
 , 			{
 				"box" : 				{
 					"id" : "obj-7",
-					"linecount" : 10,
+					"linecount" : 12,
 					"maxclass" : "comment",
 					"numinlets" : 1,
 					"numoutlets" : 0,
-					"patching_rect" : [ 651.3792724609375, 215.0, 165.0, 154.0 ],
-					"text" : "The neopixelsimple object also allows you to change the color of each individual pixel with a simplified color control message. \n\nThe left inlet is index, the right inlet will accept a value between 1 and 128, each with a preset color. \n"
+					"patching_rect" : [ 1084.3792724609375, 235.0, 165.0, 181.0 ],
+					"text" : "The neopixelsimple object also allows you to change the color of each individual pixel with a simplified color control message. \n\nThe left inlet is index, the right inlet will accept a value between 1 and 128, each with a preset color. \n\nBoth inlets are hot.\n"
 				}
 
 			}
@@ -360,19 +417,19 @@
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
 					"patching_rect" : [ 182.0, 244.0, 50.0, 22.0 ],
-					"text" : "32"
+					"text" : "50"
 				}
 
 			}
 , 			{
 				"box" : 				{
 					"id" : "obj-13",
-					"linecount" : 15,
+					"linecount" : 20,
 					"maxclass" : "comment",
 					"numinlets" : 1,
 					"numoutlets" : 0,
-					"patching_rect" : [ 12.379310607910156, 215.0, 165.0, 208.0 ],
-					"text" : "The neopixellength object sets the number of pixels in your array. \n\nIn most cases, a message with a loadbang object is the best way to set the number of pixels upon loading your patch. \n\nYou generalliy won't change this number unless the number of pixels you want to use changes... this is pretty rare."
+					"patching_rect" : [ 12.379310607910156, 215.0, 167.0, 275.0 ],
+					"text" : "The neopixellength object sets the number of pixels in your array. \n\nIn most cases, a message with a loadbang object is the best way to set the number of pixels upon loading your patch. \n\nYou generalliy won't change this number unless the number of pixels you want to use changes... this is pretty rare.\n\nSince these objects use MIDI to communicate with the Feather, you can't use more than 127 neopixels. "
 				}
 
 			}
@@ -393,7 +450,7 @@
 					"maxclass" : "newobj",
 					"numinlets" : 2,
 					"numoutlets" : 0,
-					"patching_rect" : [ 843.0, 306.0, 88.0, 22.0 ],
+					"patching_rect" : [ 1260.0, 335.0, 88.0, 22.0 ],
 					"text" : "neopixelsimple"
 				}
 
@@ -405,7 +462,7 @@
 					"maxclass" : "comment",
 					"numinlets" : 1,
 					"numoutlets" : 0,
-					"patching_rect" : [ 317.0, 215.0, 157.0, 154.0 ],
+					"patching_rect" : [ 322.0, 215.0, 157.0, 154.0 ],
 					"text" : "The neopixel object allows you to change the color of each individual pixel. \n\nThe inlets are Index, Red, Green, Blue. \n\nThe index number should be less than or equal to the number of pixels in your array. "
 				}
 
@@ -462,13 +519,6 @@
 			}
 , 			{
 				"patchline" : 				{
-					"destination" : [ "obj-1", 1 ],
-					"source" : [ "obj-15", 0 ]
-				}
-
-			}
-, 			{
-				"patchline" : 				{
 					"destination" : [ "obj-3", 1 ],
 					"source" : [ "obj-16", 0 ]
 				}
@@ -483,24 +533,8 @@
 			}
 , 			{
 				"patchline" : 				{
-					"destination" : [ "obj-18", 1 ],
-					"source" : [ "obj-20", 0 ]
-				}
-
-			}
-, 			{
-				"patchline" : 				{
-					"destination" : [ "obj-1", 0 ],
-					"order" : 0,
-					"source" : [ "obj-21", 0 ]
-				}
-
-			}
-, 			{
-				"patchline" : 				{
-					"destination" : [ "obj-18", 0 ],
-					"order" : 1,
-					"source" : [ "obj-21", 0 ]
+					"destination" : [ "obj-39", 0 ],
+					"source" : [ "obj-23", 0 ]
 				}
 
 			}
@@ -534,8 +568,15 @@
 			}
 , 			{
 				"patchline" : 				{
-					"destination" : [ "obj-39", 0 ],
-					"source" : [ "obj-36", 0 ]
+					"destination" : [ "obj-23", 0 ],
+					"source" : [ "obj-33", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-47", 3 ],
+					"source" : [ "obj-38", 0 ]
 				}
 
 			}
@@ -555,8 +596,22 @@
 			}
 , 			{
 				"patchline" : 				{
-					"destination" : [ "obj-36", 0 ],
-					"source" : [ "obj-48", 0 ]
+					"destination" : [ "obj-47", 2 ],
+					"source" : [ "obj-41", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-47", 1 ],
+					"source" : [ "obj-45", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-47", 0 ],
+					"source" : [ "obj-46", 0 ]
 				}
 
 			}
@@ -592,6 +647,13 @@
 			}
 , 			{
 				"name" : "neopixellength.maxpat",
+				"bootpath" : "~/Desktop/Interactive Sound Art/data modules",
+				"patcherrelativepath" : ".",
+				"type" : "JSON",
+				"implicit" : 1
+			}
+, 			{
+				"name" : "neopixel2.maxpat",
 				"bootpath" : "~/Desktop/Interactive Sound Art/data modules",
 				"patcherrelativepath" : ".",
 				"type" : "JSON",

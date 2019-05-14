@@ -9,6 +9,7 @@ from random import randrange
 from analogio import AnalogIn
 import time, busio
 import neopixel 
+import adafruit_hcsr04
 
 # Configure the Feather as a MIDI device.
 midi = adafruit_midi.MIDI(midi_out=usb_midi.ports[1], midi_in=usb_midi.ports[0], out_channel=0, in_channel = 0)
@@ -102,29 +103,123 @@ def fill(started = False):
     v = buff[0] * 100 + buff[1] * 10 + buff[2]
     return v
 
+######################################################
+# NEOPIXELS
+######################################################
+def setBoardPixel(t):
+  bneo[0] = t
 
-# This might be painfully slow. We'll see.
-
-
-def twiddle():
-  # bneo[0] = (randrange(30, 200), randrange(30, 200), randrange(30, 200))
-  pass
-
-###########################
-# MIDI Protocol
-# Why green? I don't know. 
 NEOPIXEL_LENGTH = 1
 NEOPIXEL_INDEX = 0
 bneo = neopixel.NeoPixel(board.NEOPIXEL, 1, brightness = 0.1)
 ring = neopixel.NeoPixel(board.D4, NEOPIXEL_LENGTH, brightness = 0.1)
-bneo[0] = (0xA0, 0x00, 0xFF) 
 neo = [0, 0, 0]
 
+
+######################################################
+# SONAR
+######################################################
+# https://www.sparkfun.com/products/13959
+sonar = [None, None, None]
+last_sonar = [monotonic(), monotonic(), monotonic()]
+SONAR_MAX = 200
+
+# Needs to remove trig, echo from the board.
+def setup_sonar(ndx, trig, echo):
+  global digital_pins, digital_objects, NUM_DIGITAL_PINS
+  # If we try setting up a sonar on this location 
+  # more than once, this will fail... so, try...
+  trig = numberToBoardPin(trig)
+  echo = numberToBoardPin(echo)
+  try:
+    # Get the index of those board pins in the 
+    # board pin array.
+    trigNdx = digital_pins.index(trig)
+    # Us that index to deinit() those pins.
+    digital_objects[trigNdx].deinit()
+    # Remove them from the digital objects list.
+    digital_pins.pop(trigNdx)
+    digital_objects.pop(trigNdx)
+
+    # Now, do the echo pin. Do these in order, because
+    # I'm destructing the lists as I go.
+    echoNdx = digital_pins.index(echo)
+    # print("E ndx: {0}".format(echoNdx))
+    digital_objects[echoNdx].deinit()
+    digital_pins.pop(echoNdx)
+    digital_objects.pop(echoNdx)
+  
+    # Update how many digital pins are in the list.
+    NUM_DIGITAL_PINS = len(digital_pins)
+  except:
+    pass
+
+  
+  if sonar[ndx] is not None:
+    sonar[ndx].deinit()
+  sonar[ndx] = adafruit_hcsr04.HCSR04(trigger_pin=trig, echo_pin=echo)
+
+def read_sonar(ndx):
+  global sonar, last_sonar
+  now = monotonic()
+  if (now - last_sonar[ndx] > 0.05):
+    last_sonar[ndx] = now
+    # print("Reading again")
+    try:
+      return sonar[ndx].distance
+    except RuntimeError:
+      return None
+ 
+######################################################
+# MIDI PROTOCOL
+######################################################
+pins = [board.D5, board.D6, None, None, board.D9, board.D10, board.D11, board.D12, board.D13]
+def numberToBoardPin(n):
+  global pins
+  if n < 5:
+    return board.D5
+  elif n > 13:
+    return board.D13
+  else:
+    n = n - 5
+    return pins[n]
+
+# HC-SRO4 SONAR
+# 116 : Configure the sonar NUM on TRIG, ECHO
+# 117 : Set sonar scaling distance (2 - 400)
+# 118 : Read the sonar NUM
+## NEOPIXELS
+# 119 : Clear all neopixels on the strand.
+# 120 : Set the index of the neopixel we're talking to
+# 121 : Pass. Reserved.
+# 122 : Set the red value.
+# 123 : Set the green value.
+# 124 : Set the blue value.
+# 125 : Reserved
+# 126 : Set the number of pixels in the array
 def midi_protocol (c, v):
   global ring, neo, bneo, NEOPIXEL_INDEX, NEOPIXEL_LENGTH
+  global SONAR_MAX
   update = False
   # print("MIDI C " + str(c) + " V " + str(v))
   
+  ### 116
+  # Set up sonar
+  if (c == 116) and (v < 3):
+    ndx = v
+    trig = midi.receive().value
+    echo = midi.receive().value
+    setup_sonar(ndx, trig, echo)
+  ### 117
+  # Set the sonar max ranging distance
+  if (c == 117):
+    if v < 2:
+      SONAR_MAX = 2
+    elif v > 400:
+      SONAR_MAX = 400
+    else:
+      SONAR_MAX = v
+
   ### 119
   # Clear everything
   if c == 119:
@@ -177,29 +272,41 @@ def midi_protocol (c, v):
     ring[NEOPIXEL_INDEX] = tuple(neo)
     bneo[0] = tuple(neo)
 
-  # print("MIDI C" + str(c) + " V " + str(v))
-  # midi_protocol = {
-  #   120 : set_neopixel_index,
-  #   121 : passFun, # neopixel_rgb,
-  #   122 : set_neopixel_red,
-  #   123 : set_neopixel_green,
-  #   124 : set_neopixel_blue,
-  #   125 : passFun, # Will be W for advanced NeoPixels
-  #   126 : set_neopixels_in_array
-  # }
-  # if (c >= 120) and (c <= 126):
-  #   midi_protocol[midi_cch]()
+#########################################################
+### SETUP                                             ###
+#########################################################
+# setup_sonar(0, board.D5, board.D6)
+# setup_sonar(1, board.D9, board.D10)
 
 ###########################
-# Clear the MIDI stream
+# Clear the MIDI stream at startup
 # We don't know who is talking to us. 
-# We'll clear the queue.
-for i in range(0, 10):
+# We'll clear the queue. It might be 
+# 30 messages. It might not. 
+setBoardPixel((0xFF, 0x00, 0x10))
+for i in range(0, 30):
   midi_msg = midi.receive()
+setBoardPixel((0xA0, 0x00, 0xFF))
 
 ###########################
 # FOREVER
+
 while True:
+
+  for i in range(len(sonar)):
+    if sonar[i] is not None:
+      reading = read_sonar(i)
+      if reading is not None:
+        # print("R{0}: {1}".format(i, reading))
+        if reading < 2:
+          reading = 2
+        elif reading > SONAR_MAX:
+          reading = SONAR_MAX
+        scaled = int((reading / SONAR_MAX) * 127)
+        print("R{0}: {1}".format(i, scaled))
+        midi.control_change(81, scaled)
+
+
   # First, read in all of the analog values.
   # Make sure they're 0-127.
   for ndx in range(0, NUM_ANALOG_PINS):
@@ -215,8 +322,10 @@ while True:
       if prev_digital[ndx] != current_digital[ndx]:
         # print(str(count) + " " + str(ndx))
         # We are pulling high, so send 0 when True and 1 when False
-        midi.control_change(ndx, not current_digital[ndx])
-        twiddle()
+        if not current_digital[ndx]:
+          midi.control_change(ndx, 1)
+        else:
+          midi.control_change(ndx, 0)
     # Make sure to update the pin state for all of the digital pins before 
     # dropping out of the loop. This is prev = current.
     update_state()
@@ -246,4 +355,3 @@ while True:
       cc = fill(started = True)
       v = fill()
       midi.control_change(cc, abs(v))
-      twiddle()
