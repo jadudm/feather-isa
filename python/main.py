@@ -13,6 +13,7 @@ import adafruit_hcsr04
 
 # Configure the Feather as a MIDI device.
 midi = adafruit_midi.MIDI(midi_out=usb_midi.ports[1], midi_in=usb_midi.ports[0], out_channel=0, in_channel = 0)
+# neo_midi = adafruit_midi.MIDI(midi_out=usb_midi.ports[1], midi_in=usb_midi.ports[0], out_channel=1, in_channel = 1)
 
 # Set up the UART for talking to the Micro:Bit
 uart = busio.UART(board.TX, board.RX, baudrate = 115200)
@@ -220,6 +221,26 @@ def midi_protocol (c, v):
     else:
       SONAR_MAX = v
 
+  ### 118
+  if c == 118:
+    ntimeout = monotonic()
+    ndx = v
+    rgb = [0, 0, 0]
+    rgbndx = 0
+    while (((monotonic() - ntimeout) < 0.015) and rgbndx < 3):
+      msg = midi.receive()
+      rgb[rgbndx] = msg.value
+      print("v {2} {1} {0}".format(monotonic() - ntimeout, msg.value, rgbndx))
+      rgbndx = rgbndx + 1
+    print(rgbndx)
+    if rgbndx == 3:
+      print("UPDATE {0}".format(ndx))
+      NEOPIXEL_INDEX = ndx
+      for i in range(0, 3):
+        print("{0} {1}".format(i, rgb[i]))
+        neo[i] = rgb[i]
+      update = True
+
   ### 119
   # Clear everything
   if c == 119:
@@ -331,10 +352,17 @@ while True:
     update_state()
 
   # Check for MIDI input
-  midi_msg = midi.receive() 
+  midi_msg = midi.receive()
   if midi_msg is not None:
+    print("CHANNEL 0")
     if isinstance(midi_msg, ControlChange):
       midi_protocol(midi_msg.control, midi_msg.value)
+  
+  # midi_msg = neo_midi.receive()
+  # if midi_msg is not None:
+  #   print("CHANNEL 1")
+  #   if isinstance(midi_msg, ControlChange):
+  #     midi_protocol(midi_msg.control, midi_msg.value)
 
   # If we have any UART data waiting, we should handle it.
   if uart.in_waiting > 0:
