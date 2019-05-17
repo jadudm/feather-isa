@@ -13,6 +13,7 @@ from analogio import AnalogIn
 import time, busio
 import neopixel 
 import adafruit_hcsr04
+import microcontroller
 
 # Configure the Feather as a MIDI device.
 midi = adafruit_midi.MIDI(midi_out=usb_midi.ports[1], midi_in=usb_midi.ports[0], out_channel=0, in_channel = 0)
@@ -83,7 +84,7 @@ def fill(started = False):
     if (data == b'S'):
       READ = True
 
-  while READ:
+  while READ and ndx < 3:
     data = uart.read(1)
     if data == b'E':
       READ = False
@@ -111,7 +112,7 @@ def fill(started = False):
 def setBoardPixel(t):
   bneo[0] = t
 
-NEOPIXEL_LENGTH = 1
+NEOPIXEL_LENGTH = 100
 NEOPIXEL_INDEX = 0
 NEOPIXEL_END_NDX = None
 bneo = neopixel.NeoPixel(board.NEOPIXEL, 1, brightness = 0.1)
@@ -186,6 +187,13 @@ def numberToBoardPin(n):
     n = n - 5
     return pins[n]
 
+def get_midi_msg():
+  msg = midi.receive() 
+  start = monotonic()
+  while msg is None and ((monotonic() - start) < 0.01):
+    msg = midi.receive() 
+  return msg
+
 # FIXME
 # These should all be named constants. However, Python does not have constants.
 # Need to think about how best to do that. Identity function? const() from MicroPython?
@@ -212,8 +220,8 @@ def midi_protocol (c, v):
   # Set up sonar
   if (c == 116) and (v < 3):
     ndx = v
-    trig = midi.receive().value
-    echo = midi.receive().value
+    trig = get_midi_msg().value
+    echo = trig = get_midi_msg().value
     setup_sonar(ndx, trig, echo)
   ### 117
   # Set the sonar max ranging distance
@@ -231,37 +239,40 @@ def midi_protocol (c, v):
     # This is the start index.
     sndx = v
     # This is the end index.
-    endx = midi.receive().value
-    # Now, I expect a color to come in.
-    rgb = [0, 0, 0]
-    rgbndx = 0
-    # WARNING It seems to take approximately 0.048s to send the four bytes.
-    # (That's a rough, eyeball, single-message estimate.)
-    # I'm doubling that for the timeout value.
-    while (((monotonic() - ntimeout) < 0.01) and rgbndx < 3):
-      msg = midi.receive()
-      # rgb[rgbndx] = msg.value
-      neo[rgbndx] = msg.value
-      print("v {3} {2} {1} {0}".format(monotonic() - ntimeout, msg.value, rgbndx, sndx))
-      rgbndx = rgbndx + 1
-    # If things look good, I'll set the update flag.
-    # This both sets the index to update as well as indicates
-    # that I should use the neo[] list as a tuple() for the pixel.
-    if rgbndx == 3:
-      # print("UPDATE {0}".format(ndx))
-      NEOPIXEL_INDEX = sndx
-      NEOPIXEL_END_NDX = endx
-      # for i in range(0, 3):
-      #   # print("{0} {1}".format(i, rgb[i]))
-      #   neo[i] = rgb[i]
-      update = True
+    endx = get_midi_msg()
+    if endx is not None:
+      endx = endx.value
+      # Now, I expect a color to come in.
+      rgb = [0, 0, 0]
+      rgbndx = 0
+      # WARNING It seems to take approximately 0.048s to send the four bytes.
+      # (That's a rough, eyeball, single-message estimate.)
+      # I'm doubling that for the timeout value.
+      while (((monotonic() - ntimeout) < 0.01) and rgbndx < 3):
+        msg = get_midi_msg()
+        if msg is not None:
+          neo[rgbndx] = msg.value
+          print("v {3} {2} {1} {0}".format(monotonic() - ntimeout, msg.value, rgbndx, sndx))
+          rgbndx = rgbndx + 1
+      # If things look good, I'll set the update flag.
+      # This both sets the index to update as well as indicates
+      # that I should use the neo[] list as a tuple() for the pixel.
+      if rgbndx == 3:
+        # print("UPDATE {0}".format(ndx))
+        NEOPIXEL_INDEX = sndx
+        NEOPIXEL_END_NDX = endx
+        # for i in range(0, 3):
+        #   # print("{0} {1}".format(i, rgb[i]))
+        #   neo[i] = rgb[i]
+        update = True
 
   ### 119
   # Clear everything
   if c == 119:
     t = (0, 0, 0)
     for i in range(0, NEOPIXEL_LENGTH):
-      ring[i] = t
+      if i < NEOPIXEL_LENGTH:
+        ring[i] = t
     # Flush some of the buffer. 
     for i in range(0, 20):
       midi.receive()
@@ -307,8 +318,11 @@ def midi_protocol (c, v):
   if update:
     t = tuple(neo)
     if NEOPIXEL_END_NDX:
+      print("S {0} E {1}".format(NEOPIXEL_INDEX, NEOPIXEL_END_NDX))
       for i in range(NEOPIXEL_INDEX, NEOPIXEL_END_NDX):
-        ring[i] = t
+        print("Setting {0} to {1}".format(i, t))
+        if i < NEOPIXEL_LENGTH:
+          ring[i] = t
       # This is a hack to allow a range of pixels to be set.
       NEOPIXEL_END_NDX = None
     bneo[0] = t
@@ -355,7 +369,7 @@ while True:
     update_state()
 
   # Check for MIDI input
-  midi_msg = midi.receive()
+  midi_msg = get_midi_msg()
   if midi_msg is not None:
     if isinstance(midi_msg, ControlChange):
       midi_protocol(midi_msg.control, midi_msg.value)
@@ -382,14 +396,18 @@ while True:
     start = monotonic()
     while (not START_FOUND) and (not TIMED_OUT):
       now = monotonic()
+
       if ((now - start > 0.005)):
         # print("TIMED OUT")
         TIMED_OUT = True
       data = uart.read(1)
+
       # If I find a start condition
       if (data is not None) and data == b'S':
         START_FOUND = True
-    if START_FOUND:
+
+    if START_FOUND and not TIMED_OUT:
       cc = fill(started = True)
       v = fill()
-      midi.control_change(cc, abs(v))
+      if cc >= 0 and v >= 0 and cc <= 127 and v <= 127:
+        midi.control_change(cc, abs(v))
