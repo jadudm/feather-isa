@@ -1,3 +1,6 @@
+# Copyright 2019 Matt Jadud <matt@jadud.com>
+# This code is made available under the MIT License
+# https://opensource.org/licenses/MIT
 import usb_midi
 import adafruit_midi
 from adafruit_midi.control_change          import ControlChange
@@ -13,8 +16,6 @@ import adafruit_hcsr04
 
 # Configure the Feather as a MIDI device.
 midi = adafruit_midi.MIDI(midi_out=usb_midi.ports[1], midi_in=usb_midi.ports[0], out_channel=0, in_channel = 0)
-# neo_midi = adafruit_midi.MIDI(midi_out=usb_midi.ports[1], midi_in=usb_midi.ports[0], out_channel=1, in_channel = 1)
-
 # Set up the UART for talking to the Micro:Bit
 uart = busio.UART(board.TX, board.RX, baudrate = 115200)
 
