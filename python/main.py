@@ -19,7 +19,7 @@ midi = adafruit_midi.MIDI(midi_out=usb_midi.ports[1], midi_in=usb_midi.ports[0],
 uart = busio.UART(board.TX, board.RX, baudrate = 115200)
 
 # Pin Configuration
-# We handle some pins as digital, and some as analog.
+# I handle some pins as digital, and some as analog.
 # The end-user can plug switches and buttons into the top of the board
 # (which are all digital pins), and they can plug knobs and other 
 # continuous devices into the bottom of the board (analog).
@@ -47,7 +47,7 @@ def setup_analog_pins():
   for ndx, p in enumerate(analog_pins):
     analog_objects[ndx] = AnalogIn(p)
 
-# For the digital pins, we find out if anyone flipped state.
+# For the digital pins, I find out if anyone flipped state.
 # There is no corresponding analog version; it takes too long,
 # and the floating analog inputs are going to just wiggle 
 # randomly anyway. Might as well send the data.
@@ -112,6 +112,7 @@ def setBoardPixel(t):
 
 NEOPIXEL_LENGTH = 1
 NEOPIXEL_INDEX = 0
+NEOPIXEL_END_NDX = None
 bneo = neopixel.NeoPixel(board.NEOPIXEL, 1, brightness = 0.1)
 ring = neopixel.NeoPixel(board.D4, NEOPIXEL_LENGTH, brightness = 0.1)
 neo = [0, 0, 0]
@@ -128,7 +129,7 @@ SONAR_MAX = 200
 # Needs to remove trig, echo from the board.
 def setup_sonar(ndx, trig, echo):
   global digital_pins, digital_objects, NUM_DIGITAL_PINS
-  # If we try setting up a sonar on this location 
+  # If I try setting up a sonar on this location 
   # more than once, this will fail... so, try...
   trig = numberToBoardPin(trig)
   echo = numberToBoardPin(echo)
@@ -155,7 +156,6 @@ def setup_sonar(ndx, trig, echo):
   except:
     pass
 
-  
   if sonar[ndx] is not None:
     sonar[ndx].deinit()
   sonar[ndx] = adafruit_hcsr04.HCSR04(trigger_pin=trig, echo_pin=echo)
@@ -185,13 +185,16 @@ def numberToBoardPin(n):
     n = n - 5
     return pins[n]
 
+# FIXME
+# These should all be named constants. However, Python does not have constants.
+# Need to think about how best to do that. Identity function? const() from MicroPython?
 # HC-SRO4 SONAR
 # 116 : Configure the sonar NUM on TRIG, ECHO
 # 117 : Set sonar scaling distance (2 - 400)
-# 118 : Read the sonar NUM
 ## NEOPIXELS
+# 118 : Set neopixel NDX, R, G, B as one 4-byte sequence
 # 119 : Clear all neopixels on the strand.
-# 120 : Set the index of the neopixel we're talking to
+# 120 : Set the index of the neopixel I'm talking to
 # 121 : Pass. Reserved.
 # 122 : Set the red value.
 # 123 : Set the green value.
@@ -199,7 +202,7 @@ def numberToBoardPin(n):
 # 125 : Reserved
 # 126 : Set the number of pixels in the array
 def midi_protocol (c, v):
-  global ring, neo, bneo, NEOPIXEL_INDEX, NEOPIXEL_LENGTH
+  global ring, neo, bneo, NEOPIXEL_INDEX, NEOPIXEL_LENGTH, NEOPIXEL_END_NDX
   global SONAR_MAX
   update = False
   # print("MIDI C " + str(c) + " V " + str(v))
@@ -224,21 +227,32 @@ def midi_protocol (c, v):
   ### 118
   if c == 118:
     ntimeout = monotonic()
-    ndx = v
+    # This is the start index.
+    sndx = v
+    # This is the end index.
+    endx = midi.receive().value
+    # Now, I expect a color to come in.
     rgb = [0, 0, 0]
     rgbndx = 0
-    while (((monotonic() - ntimeout) < 0.015) and rgbndx < 3):
+    # WARNING It seems to take approximately 0.048s to send the four bytes.
+    # (That's a rough, eyeball, single-message estimate.)
+    # I'm doubling that for the timeout value.
+    while (((monotonic() - ntimeout) < 0.01) and rgbndx < 3):
       msg = midi.receive()
-      rgb[rgbndx] = msg.value
-      print("v {2} {1} {0}".format(monotonic() - ntimeout, msg.value, rgbndx))
+      # rgb[rgbndx] = msg.value
+      neo[rgbndx] = msg.value
+      print("v {3} {2} {1} {0}".format(monotonic() - ntimeout, msg.value, rgbndx, sndx))
       rgbndx = rgbndx + 1
-    print(rgbndx)
+    # If things look good, I'll set the update flag.
+    # This both sets the index to update as well as indicates
+    # that I should use the neo[] list as a tuple() for the pixel.
     if rgbndx == 3:
-      print("UPDATE {0}".format(ndx))
-      NEOPIXEL_INDEX = ndx
-      for i in range(0, 3):
-        print("{0} {1}".format(i, rgb[i]))
-        neo[i] = rgb[i]
+      # print("UPDATE {0}".format(ndx))
+      NEOPIXEL_INDEX = sndx
+      NEOPIXEL_END_NDX = endx
+      # for i in range(0, 3):
+      #   # print("{0} {1}".format(i, rgb[i]))
+      #   neo[i] = rgb[i]
       update = True
 
   ### 119
@@ -290,21 +304,23 @@ def midi_protocol (c, v):
     pass
   
   if update:
-    ring[NEOPIXEL_INDEX] = tuple(neo)
-    bneo[0] = tuple(neo)
+    t = tuple(neo)
+    if NEOPIXEL_END_NDX:
+      for i in range(NEOPIXEL_INDEX, NEOPIXEL_END_NDX):
+        ring[i] = t
+      # This is a hack to allow a range of pixels to be set.
+      NEOPIXEL_END_NDX = None
+    bneo[0] = t
 
 #########################################################
 ### SETUP                                             ###
 #########################################################
-# setup_sonar(0, board.D5, board.D6)
-# setup_sonar(1, board.D9, board.D10)
 
 ###########################
 # Clear the MIDI stream at startup
-# We don't know who is talking to us. 
-# We'll clear the queue. It might be 
+# I don't know who is talking to us. 
+# I'll clear the queue. It might be 
 # 30 messages. It might not. 
-setBoardPixel((0xFF, 0x00, 0x10))
 for i in range(0, 30):
   midi_msg = midi.receive()
 setBoardPixel((0xA0, 0x00, 0xFF))
@@ -313,20 +329,6 @@ setBoardPixel((0xA0, 0x00, 0xFF))
 # FOREVER
 
 while True:
-
-  for i in range(len(sonar)):
-    if sonar[i] is not None:
-      reading = read_sonar(i)
-      if reading is not None:
-        # print("R{0}: {1}".format(i, reading))
-        if reading < 2:
-          reading = 2
-        elif reading > SONAR_MAX:
-          reading = SONAR_MAX
-        scaled = int((reading / SONAR_MAX) * 127)
-        print("R{0}: {1}".format(i, scaled))
-        midi.control_change(81, scaled)
-
 
   # First, read in all of the analog values.
   # Make sure they're 0-127.
@@ -337,12 +339,12 @@ while True:
       midi.control_change(7 + ndx, abs(v))
 
   # Now, see if any digital pins changed.
-  # We only send out updates for pins that have changed.
+  # I only send out updates for pins that have changed.
   if detect_digital_pin_change():
     for ndx in range(0, NUM_DIGITAL_PINS):
       if prev_digital[ndx] != current_digital[ndx]:
         # print(str(count) + " " + str(ndx))
-        # We are pulling high, so send 0 when True and 1 when False
+        # I am pulling high, so send 0 when True and 1 when False
         if not current_digital[ndx]:
           midi.control_change(ndx, 1)
         else:
@@ -354,17 +356,24 @@ while True:
   # Check for MIDI input
   midi_msg = midi.receive()
   if midi_msg is not None:
-    print("CHANNEL 0")
     if isinstance(midi_msg, ControlChange):
       midi_protocol(midi_msg.control, midi_msg.value)
   
-  # midi_msg = neo_midi.receive()
-  # if midi_msg is not None:
-  #   print("CHANNEL 1")
-  #   if isinstance(midi_msg, ControlChange):
-  #     midi_protocol(midi_msg.control, midi_msg.value)
+  # Now, service the sonar, if it exists.
+  for i in range(len(sonar)):
+    if sonar[i] is not None:
+      reading = read_sonar(i)
+      if reading is not None:
+        # print("R{0}: {1}".format(i, reading))
+        if reading < 2:
+          reading = 2
+        elif reading > SONAR_MAX:
+          reading = SONAR_MAX
+        scaled = int((reading / SONAR_MAX) * 127)
+        # print("R{0}: {1}".format(i, scaled))
+        midi.control_change(81, scaled)
 
-  # If we have any UART data waiting, we should handle it.
+  # If I have any UART data waiting, I should handle it.
   if uart.in_waiting > 0:
     START_FOUND = False
     TIMED_OUT = False
@@ -376,7 +385,7 @@ while True:
         # print("TIMED OUT")
         TIMED_OUT = True
       data = uart.read(1)
-      # If we find a start condition
+      # If I find a start condition
       if (data is not None) and data == b'S':
         START_FOUND = True
     if START_FOUND:
