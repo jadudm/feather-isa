@@ -1,0 +1,6 @@
+{
+  "terminal.integrated.env.osx": {
+    "PATH": "/Users/mjadud/.platformio/penv/bin:/Users/mjadud/.platformio/penv:/anaconda3/bin:/anaconda3/condabin:/Applications/racket720/bin:/usr/local/Cellar/pyenv-virtualenv/1.1.3/shims:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Library/TeX/texbin:/usr/local/CrossPack-AVR/bin:/Applications/Visual Studio Code.app/Contents/Resources/app/bin:/Users/mjadud/go/bin:/usr/local/opt/go/libexec/bin",
+    "PLATFORMIO_CALLER": "vscode"
+  }
+}
