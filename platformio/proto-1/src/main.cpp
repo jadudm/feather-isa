@@ -3,31 +3,9 @@
 
 #define NEOPIXEL_BOARD_PIN 8
 #define MIDI_CHANNEL 0
+#define MIDI_PACKET_SIZE 8
 
 Adafruit_NeoPixel board_neo(1, NEOPIXEL_BOARD_PIN, NEO_GRB + NEO_KHZ800);
-
-enum States_Enum
-{
-  START,
-  NEXT,
-  READ_MSG,
-  PX_R,
-  PX_G,
-  PX_B,
-  UPDATE_BOARD_PIXEL
-};
-enum PktEnum
-{
-  PKT_START,
-  P1,
-  P2,
-  P3,
-  P4,
-  P5
-};
-
-uint8_t state = START;
-PktEnum pkt_state = PKT_START;
 
 typedef struct
 {
@@ -41,48 +19,99 @@ void controlChange(byte channel, byte control, byte value)
   MidiUSB.sendMIDI(event);
 }
 
-void reset(MIDIControl *mc)
+MIDIControl pkt[MIDI_PACKET_SIZE];
+byte msg_count = 0;
+
+void reset()
 {
-  mc->controller = 0xFF;
-  mc->value = 0xFF;
+  for (int ndx = 0; ndx < MIDI_PACKET_SIZE; ndx++)
+  {
+    pkt[ndx].controller = 0xFF;
+    pkt[ndx].value = 0xFF;
+  }
 }
 
-MIDIControl packet[5];
-byte msgs = 0;
-void read_msg()
+enum PktRead
+{
+  START,
+  HEADER,
+  LENGTH,
+  PKTS,
+  CRC
+};
+
+void read_msgs()
 {
   midiEventPacket_t rx;
-  msgs = 0;
-  for (int ndx = 0; ndx < 5; ndx++)
-  {
-    reset(&packet[ndx]);
-  }
+  int byte_count = 0;
+  int msg_length = 0;
+  msg_count = 0;
+  PktRead state = START;
+  reset();
   do
   {
     rx = MidiUSB.read();
     if (rx.header != 0)
     {
-      Serial.print("RCV: ");
-      Serial.print(rx.header, HEX);
-      Serial.print("-");
-      Serial.print(rx.byte1, HEX);
-      Serial.print(" C ");
-      Serial.print(rx.byte2, HEX);
-      Serial.print(" V ");
-      Serial.println(rx.byte3, HEX);
+      // Serial.print("RCV: ");
+      // Serial.print(rx.header, HEX);
+      // Serial.print("-");
+      // Serial.print(rx.byte1, HEX);
+      // Serial.print(" C ");
+      // Serial.print(rx.byte2, HEX);
+      // Serial.print(" V ");
+      // Serial.println(rx.byte3, HEX);
 
-      if (rx.byte2 != 0xFF) {
-        packet[msgs].controller = rx.byte2;
-        packet[msgs].value = rx.byte3;
-        msgs = msgs + 1;
+      switch (state)
+      {
+      case START:
+        if (rx.byte3 == 0x2A)
+        {
+          // Serial.println("-> HEADER");
+          state = HEADER;
+        }
+        break;
+      case HEADER:
+        if (rx.byte3 == 0x2B)
+        {
+          // Serial.println("-> LENGTH");
+          state = LENGTH;
+        }
+        else
+        {
+          // Serial.println("-> START");
+          state = START;
+        }
+        break;
+      case LENGTH:
+        msg_length = rx.byte3;
+        // Serial.println("LENGTH: " + String(msg_length));
+        // Serial.println("-> PKTS");
+        state = PKTS;
+        break;
+      case PKTS:
+        if (byte_count < msg_length)
+        {
+          // Serial.println(" R " + String(byte_count) + " " + rx.byte3);
+          pkt[byte_count].controller = rx.byte2;
+          pkt[byte_count].value = rx.byte3;
+          byte_count = byte_count + 1;
+        }
+        else
+        {
+          // This reads the CRC
+          // Serial.println("Reading CRC");
+          byte_count = byte_count + 1;
+          pkt[byte_count].controller = rx.byte2;
+          pkt[byte_count].value = rx.byte3;
+          // Include the CRC
+          msg_count = msg_length + 1;
+          state = START;
+        }
+        break;
       }
     }
   } while (rx.header != 0);
-}
-
-bool check(MIDIControl *mc, byte controller, byte value)
-{
-  return (mc->controller == controller) && (mc->value == value);
 }
 
 void board(byte r, byte g, byte b)
@@ -91,96 +120,42 @@ void board(byte r, byte g, byte b)
   board_neo.show();
 }
 
-#define PS(sym)            \
-  case sym:                \
-    Serial.print("" #sym); \
-    break
-void print_state(int n)
+bool is_valid_packet()
 {
-  switch (n)
+  int sum = 0;
+  int crc = 0;
+  for (int ndx = 0; ndx < (msg_count - 1); ndx++)
   {
-    PS(START);
-    PS(NEXT);
-    PS(READ_MSG);
-    PS(PX_R);
-    PS(PX_G);
-    PS(PX_B);
+    // Serial.println("SUM " + String(sum) + " V " + String(pkt[ndx].value));
+    sum = sum + pkt[ndx].value;
+  }
+  // Serial.println("SUM " + String(sum));
+  crc = sum % 128;
+  // Serial.println("COMPARE LOCAL " + String(crc) + " REM " + String(pkt[msg_count].value));
+  return (pkt[msg_count].value == crc);
+}
+
+enum MsgTypes {
+  SET_BOARD_PIXEL = 1
+  };
+
+void interpret()
+{
+  if (is_valid_packet())
+  {
+    Serial.println("INTERP");
+
+    // The packet is:
+    // [0] MSG TYPE
+    // [1 ... ] Payload (per message type)
+    switch(pkt[0].value) {
+      case SET_BOARD_PIXEL:
+        board(pkt[1].value, pkt[2].value, pkt[3].value);
+      break;
+    }
+
   }
 }
-void update(int state, MIDIControl *mc)
-{
-  Serial.print("State ");
-  print_state(state);
-  Serial.println(" CC " + String(mc->controller, HEX) + " V  " + String(mc->value, HEX));
-}
-
-// bool read_packet(MIDIControl *mc)
-// {
-//   Serial.println("read_packet C " + String(mc->controller, HEX) + " V " + String(mc->value));
-//   switch (pkt_state)
-//   {
-//   case PKT_START:
-//     if (check(mc, 0x00, 0x2A))
-//     {
-//       Serial.println("-> P1");
-//       pkt_state = P1;
-//     } else { pkt_state = PKT_START; }
-//     break;
-//   case P1:
-//     if (mc->controller == 0x01) {
-//       Serial.println("-> P2");
-//       packet[0] = mc->value;
-//       pkt_state = P2;
-//     } else if (check(mc, 0x00, 0x24)) {
-//       pkt_state = PKT_START;
-//       return 1;
-//     } else { pkt_state = PKT_START; }
-//     break;
-//   case P2:
-//     if (mc->controller == 0x01) {
-//       Serial.println("-> P3");
-//       packet[1] = mc->value;
-//       pkt_state = P3;
-//     } else if (check(mc, 0x00, 0x24)) {
-//       pkt_state = PKT_START;
-//       return 1;
-//     } else { pkt_state = PKT_START; }
-//     break;
-//   case P3:
-//     if (mc->controller == 0x01) {
-//       Serial.println("-> P4");
-//       packet[2] = mc->value;
-//       pkt_state = P4;
-//     } else if (check(mc, 0x00, 0x24)) {
-//       pkt_state = PKT_START;
-//       return 1;
-//     } else { pkt_state = PKT_START; }
-//     break;
-//   case P4:
-//     if (mc->controller == 0x01) {
-//       Serial.println("-> P5");
-//       packet[4] = mc->value;
-//       pkt_state = P5;
-//     } else if (check(mc, 0x00, 0x24)) {
-//       pkt_state = PKT_START;
-//       return 1;
-//     } else { pkt_state = PKT_START; }
-//     break;
-//   case P5:
-//     if (mc->controller == 0x01) {
-//       Serial.println("-> DONE; RESET");
-//       packet[4] = mc->value;
-//       pkt_state = PKT_START;
-//       return 1;
-//     } else if (check(mc, 0x00, 0x24)) {
-//       pkt_state = PKT_START;
-//       return 1;
-//     } else { pkt_state = PKT_START; }
-//     break;
-//   }
-
-//   return 0;
-// }
 
 int counter = 0;
 MIDIControl rx;
@@ -199,27 +174,16 @@ void setup()
 
 void loop()
 {
-  bool is_pkt = false;
-  read_msg();
-
-  if (msgs != 0)
+  read_msgs();
+  if (msg_count > 0)
   {
-    Serial.println("MSGS " + String(msgs));
-    for (int ndx = 0; ndx < msgs; ndx++)
+    Serial.println("MSGS " + String(msg_count));
+    for (int ndx = 0; ndx < msg_count; ndx++)
     {
-      Serial.println("\tC " + String(packet[ndx].controller) + " V " + String(packet[ndx].value));
+      //Serial.println(" NDX " + String(ndx) + " C " + String(pkt[ndx].controller) + " V " + String(pkt[ndx].value));
     }
-  }
-
-  if (rx.controller != 0xFF)
-  {
-
-    //is_pkt = read_packet(&rx);
-  }
-
-  if (is_pkt)
-  {
-    Serial.println("IS PACKET");
+    // Assumes that pkt is global, and in good health.
+    interpret();
   }
 
   counter = counter + 1;
