@@ -21,6 +21,7 @@ int *analog_readings = (int *)malloc(ANALOG_PIN_COUNT * sizeof(int));
 int digital_pins[] = {5, 6, 9, 10, 11, 12, 13};
 int DIGITAL_PIN_COUNT = sizeof(digital_pins) / sizeof(digital_pins[0]);
 int *digital_readings = (int *)malloc(DIGITAL_PIN_COUNT * sizeof(int));
+bool *digital_changed = (bool *)malloc(DIGITAL_PIN_COUNT * sizeof(bool));
 
 typedef struct
 {
@@ -221,6 +222,28 @@ int scale_analog(int reading)
   return (int)floor(tmp);
 }
 
+
+// void digitalPinChangeISR () {
+//   int reading, ndx;
+//   for (ndx = 0; ndx < DIGITAL_PIN_COUNT; ndx++)
+//     reading = digitalRead(ndx);
+//     if (reading != digital_readings[ndx]) {
+//       digital_readings[ndx] = reading;
+//       digital_changed[ndx] = true;
+//     }
+// }
+
+// void process_pin_changes() {
+//   int reading;
+//   for (int ndx = 0; ndx < DIGITAL_PIN_COUNT; ndx++)
+//     if (digital_changed[ndx]) {
+//       digital_changed[ndx] = false;
+//       reading = digitalRead(ndx);
+//       digital_readings[ndx] = reading;
+//       controlChange(0, ANALOG_PIN_COUNT + ndx, 1);
+//     }
+// }
+
 int counter = 0;
 MIDIControl rx;
 void setup()
@@ -250,7 +273,10 @@ void setup()
   for (int ndx = 0; ndx < DIGITAL_PIN_COUNT; ndx++)
   {
     pinMode(digital_pins[ndx], INPUT_PULLUP);
-    digital_readings[ndx] = digitalRead(digital_pins[ndx]);
+    // I need an initial state.
+    //digital_readings[ndx] = digitalRead(digital_pins[ndx]);
+    //digital_changed[ndx] = false;
+    //attachInterrupt(digitalPinToInterrupt (ndx), digitalPinChangeISR, CHANGE);
   }
 }
 
@@ -309,6 +335,7 @@ void initial_digital_read()
       reading = digitalRead(digital_pins[ndx]);
       if (reading != digital_readings[ndx]) {
         digital_readings[ndx] = reading;
+        controlChange(0, ndx + DIGITAL_PIN_COUNT, digital_readings[ndx]);
       }
     }
   }
@@ -335,12 +362,32 @@ void debounce_digital_read()
   }
 }
 
+void process_digital_inputs() {
+  int reading;
+    for (int ndx = 0; ndx < DIGITAL_PIN_COUNT; ndx++)
+    {
+      reading = digitalRead(digital_pins[ndx]);
+      if (reading != digital_readings[ndx])
+      {
+        digital_readings[ndx] = reading;
+        controlChange(0, ndx + DIGITAL_PIN_COUNT, digital_readings[ndx]);
+      }
+    }
+}
+
+int pin_check_clock = millis();
 void loop()
 {
   process_midi_in();
-  process_analog_inputs();
-  initial_digital_read();
-  debounce_digital_read();
+  int now = millis();
+  if ((now - pin_check_clock) > 50) {
+    process_analog_inputs();
+    //process_pin_changes();
+    // initial_digital_read();
+    // debounce_digital_read();
+    process_digital_inputs();
+    pin_check_clock = millis();
+  }
 
   counter = counter + 1;
   if ((counter % 10000) == 0)
