@@ -16,30 +16,11 @@
 
 #define SERIAL0_SPEED 115200
 #define SERIAL1_SPEED 115200
-#define SERIAL1_TIMEOUT 20
+#define SERIAL1_TIMEOUT 18
 
-#ifdef DEBUG
-#define DEBUG_UART(x)  \
-  if (false)            \
-  {                    \
-    Serial.println(x); \
-  };
-
-#define DEBUG_MIDI(x)  \
-  if (false)            \
-  {                    \
-    Serial.println(x); \
-  };
-#define DEBUG_INTERP(x)  \
-  if (false)            \
-  {                    \
-    Serial.println(x); \
-  };
-#else
-#define DEBUG_UART(x) ;
-#define DEBUG_MIDI(x) ;
-#define DEBUG_INTERP(x) ;
-#endif
+// #define DEBUG_MIDI
+// define DEBUG_UART
+// #define DEBUG_INTERP
 
 // Define if I want to periodically send out all of the
 // analog readings, even if they have not substantively change.
@@ -132,8 +113,7 @@ enum PktRead
   MIDI_START,
   MIDI_HEADER,
   MIDI_LENGTH,
-  MIDI_PKTS,
-  MIDI_CRC
+  MIDI_PKTS
 };
 
 bool read_msgs()
@@ -164,19 +144,25 @@ bool read_msgs()
       case MIDI_START:
         if (rx.byte3 == 0x2A)
         {
-          DEBUG_MIDI("-> HEADER");
+#ifdef DEBUG_MIDI
+          Serial.println("-> HEADER");
+#endif
           state = MIDI_HEADER;
         }
         break;
       case MIDI_HEADER:
         if (rx.byte3 == 0x2B)
         {
-          DEBUG_MIDI("-> LENGTH");
+#ifdef DEBUG_MIDI
+          Serial.println("-> LENGTH");
+#endif
           state = MIDI_LENGTH;
         }
         else
         {
-          DEBUG_MIDI("-> START");
+#ifdef DEBUG_MIDI
+          Serial.println("-> START");
+#endif
           state = MIDI_START;
         }
         break;
@@ -186,16 +172,22 @@ bool read_msgs()
         pkt[byte_count].value = rx.byte3;
         byte_count = byte_count + 1;
 
-        DEBUG_MIDI("LENGTH: " + String(msg_length));
-        
+#ifdef DEBUG_MIDI
+        Serial.println("LENGTH: " + String(msg_length));
+#endif
+
         if (msg_length > MIDI_PACKET_SIZE)
         {
-          DEBUG_MIDI("-> START");
+#ifdef DEBUG_MIDI
+          Serial.println("-> START");
+#endif
           state = MIDI_START;
         }
         else
         {
+#ifdef DEBUG_MIDI
           DEBUG_MIDI("-> PKTS " + String(byte_count));
+#endif
           state = MIDI_PKTS;
         }
         break;
@@ -208,14 +200,20 @@ bool read_msgs()
           pkt[byte_count].value = rx.byte3;
           byte_count = byte_count + 1;
           state = MIDI_PKTS;
+#ifdef DEBUG_MIDI
           DEBUG_MIDI("-> PKTS " + String(byte_count));
-        } else {
+#endif
+        }
+        else
+        {
           // Serial.println("Reading CRC");
           pkt[byte_count].controller = rx.byte2;
           pkt[byte_count].value = rx.byte3;
           // byte_count = byte_count + 1;
           is_good_packet = true;
+#ifdef DEBUG_MIDI
           DEBUG_MIDI("-> DONE");
+#endif
           state = MIDI_START;
         }
         break;
@@ -259,10 +257,14 @@ void show_packet()
   {
     if (pkt[ndx].value != 0xFF)
     {
-      DEBUG_MIDI(String(ndx) + "[" + String(pkt[ndx].value) + "] ");
+#ifdef DEBUG_MIDI
+      Serial.println(String(ndx) + "[" + String(pkt[ndx].value) + "] ");
+#endif
     }
   }
-  DEBUG_MIDI("");
+#ifdef DEBUG_MIDI
+  Serial.println("");
+#endif
 }
 
 bool is_valid_packet()
@@ -277,20 +279,30 @@ bool is_valid_packet()
 
   for (int ndx = 1; ndx <= byte_count; ndx++)
   {
+#ifdef DEBUG_MIDI
     DEBUG_MIDI("MIDI SUM " + String(sum) + " V " + String(pkt[ndx].value));
+#endif
     sum = sum + pkt[ndx].value;
   }
+#ifdef DEBUG_MIDI
   DEBUG_MIDI("MIDI SUM " + String(sum));
+#endif
   localcrc = sum % 128;
   remcrc = pkt[byte_count + 1].value;
+#ifdef DEBUG_MIDI
   DEBUG_MIDI("MIDI CRC LOCAL " + String(localcrc) + " REM " + String(remcrc));
+#endif
   if (remcrc == localcrc)
   {
+#ifdef DEBUG_MIDI
     DEBUG_MIDI("MIDI CRC PASS");
+#endif
   }
   else
   {
+#ifdef DEBUG_MIDI
     DEBUG_MIDI("MIDI CRC FAIL");
+#endif
   }
   return (remcrc == localcrc);
 }
@@ -325,22 +337,29 @@ void interpret()
       byte r = pkt[2].value;
       byte g = pkt[3].value;
       byte b = pkt[4].value;
-      DEBUG_INTERP("SET_BOARD_PIXEL " + String(r, HEX) + " " + String(g, HEX) + " " + String(b, HEX));
+#ifdef DEBUG_INTERP
+      Serial.println("SET_BOARD_PIXEL " + String(r, HEX) + " " + String(g, HEX) + " " + String(b, HEX));
+#endif
       board(r, g, b);
     }
     break;
 
     case SET_PIXEL_AT_INDEX:
-      DEBUG_INTERP("SET_PIXEL_AT_INDEX");
+#ifdef DEBUG_INTERP
+      Serial.println("SET_PIXEL_AT_INDEX");
+#endif
       ribbon(pkt[2].value, pkt[3].value, pkt[4].value, pkt[5].value);
       break;
 
     case SET_PIXEL_RANGE:
     {
-      DEBUG_INTERP("SET_PIXEL_RANGE");
       int start = pkt[2].value;
       int end = pkt[3].value;
-      DEBUG_INTERP("S " + String(start) + " E " + String(end));
+
+#ifdef DEBUG_INTERP
+      Serial.println("SET_PIXEL_RANGE");
+      Serial.println("S " + String(start) + " E " + String(end));
+#endif
       for (int ndx = start; ndx < end; ndx++)
       {
         ribbon(ndx, pkt[4].value, pkt[5].value, pkt[6].value);
@@ -399,7 +418,6 @@ void setup()
   Serial1.begin(SERIAL1_SPEED);
 
   delay(1000);
-  Serial.println("ISA MIDI Interface");
   // Initialize Neopixels
   board_neo.begin();
   ribbon_neo.begin();
@@ -490,7 +508,7 @@ enum UARTPkt
   UART_HEADER,
   UART_PKT_LENGTH,
   UART_PKT,
-  UART_CRC, 
+  UART_CRC,
   UART_TERM
 };
 
@@ -604,7 +622,9 @@ bool read_uart_msg()
 
       if (b == 0x2A)
       {
-        DEBUG_UART("-> U HEADER");
+#ifdef DEBUG_UART
+        Serial.println("-> U HEADER");
+#endif
         uart_state = UART_HEADER;
       }
       else
@@ -619,7 +639,9 @@ bool read_uart_msg()
       b = read_uart_byte();
       if (b == 0x2B)
       {
-        DEBUG_UART("-> U LEN");
+#ifdef DEBUG_UART
+        Serial.println("-> U LEN");
+#endif
         uart_state = UART_PKT_LENGTH;
       }
       else
@@ -635,9 +657,10 @@ bool read_uart_msg()
       uart_pkt[count].value = length;
       count = count + 1;
 
-      DEBUG_UART("LEN: " + String(length));
-      // FIXME: Should be less than max length.
-      DEBUG_UART("-> U PKT");
+#ifdef DEBUG_UART
+      Serial.println("LEN: " + String(length));
+      Serial.println("-> U PKT");
+#endif
       uart_state = UART_PKT;
     }
     break;
@@ -649,37 +672,49 @@ bool read_uart_msg()
         count = count + 1;
         if (count > length)
         {
-          DEBUG_UART("-> READ CRC");
+#ifdef DEBUG_UART
+          Serial.println("-> READ CRC");
+#endif
           uart_state = UART_CRC;
         }
         else
         {
-          DEBUG_UART("-> PKT CTD");
+#ifdef DEBUG_UART
+          Serial.println("-> PKT CTD");
+#endif
         }
       }
       break;
-      case UART_CRC:
-      {
-        int crc = read_number();
-        DEBUG_UART("CRC " + String(crc));
-        uart_pkt[count].value = crc;
-        DEBUG_UART("-> U TERM");
-        uart_state = UART_TERM;
-      }
-      break;
+    case UART_CRC:
+    {
+      int crc = read_number();
+      uart_pkt[count].value = crc;
+#ifdef DEBUG_UART
+      Serial.println("CRC " + String(crc));
+      Serial.println("-> U TERM");
+#endif
+      uart_state = UART_TERM;
+    }
+    break;
     case UART_TERM:
     {
       b = read_uart_byte();
-      DEBUG_UART(String(b));
+#ifdef DEBUG_UART
+      Serial.println(String(b));
+#endif
       if (b == '^')
       {
-        DEBUG_UART("GOOD TERM");
+#ifdef DEBUG_UART
+        Serial.println("GOOD TERM");
+#endif
         good_packet = true;
         uart_done = true;
       }
       else
       {
-        DEBUG_UART("BAD TERM");
+#ifdef DEBUG_UART
+        Serial.println("BAD TERM");
+#endif
         uart_done = true;
         good_packet = false;
       }
@@ -696,24 +731,35 @@ void show_uart_packet()
   int length = uart_pkt[0].value;
   for (int ndx = 0; ndx <= (length + 3); ndx++)
   {
-    DEBUG_UART(String(ndx) + "[" + String(uart_pkt[ndx].value) + "] ");
+#ifdef DEBUG_UART
+    Serial.println(String(ndx) + "[" + String(uart_pkt[ndx].value) + "] ");
+#endif
   }
-  DEBUG_UART("");
+#ifdef DEBUG_UART
+  Serial.println("");
+#endif
 }
 
 int calc_uart_crc()
 {
   int crc = 0;
   int length = uart_pkt[0].value;
-  DEBUG_UART("PACKET LENGTH " + String(length));
+#ifdef DEBUG_UART
+  Serial.println("PACKET LENGTH " + String(length));
+#endif
 
   for (int ndx = 1; ndx <= length; ndx++)
   {
+#ifdef DEBUG_UART
     DEBUG_UART("UART SUM " + String(uart_pkt[ndx].value));
+#endif
     crc = crc + uart_pkt[ndx].value;
   }
   crc = crc % 128;
-  DEBUG_UART("CALCULATED CRC " + String(crc));
+#ifdef DEBUG_UART
+  Serial.println("CALCULATED CRC " + String(crc));
+#endif
+
   return crc;
 }
 
@@ -725,7 +771,10 @@ bool check_uart_packet()
     show_uart_packet();
     int crc = calc_uart_crc();
     int rcvcrc = uart_pkt[length + 1].value;
-    DEBUG_UART("UART LOCAL " + String(crc) + " RCV " + rcvcrc);
+#ifdef DEBUG_UART
+    Serial.println("UART LOCAL " + String(crc) + " RCV " + rcvcrc);
+#endif
+
     return (crc == rcvcrc);
   }
   else
@@ -740,16 +789,14 @@ bool check_uart_packet()
 // so these are normalized...
 void interpret_uart()
 {
-  // Include the CRC
-  int length = uart_pkt[0].value;
-  int crc = calc_uart_crc();
-
   for (int ndx = 0; ndx < UART_PACKET_SIZE; ndx++)
   {
     byte c = uart_pkt[ndx].controller;
     byte v = uart_pkt[ndx].value;
 
-    DEBUG_UART("pkt[" + String(ndx) + "] c[" + String(c) + "] v[" + String(v) + "]");
+#ifdef DEBUG_UART
+    Serial.println("pkt[" + String(ndx) + "] c[" + String(c) + "] v[" + String(v) + "]");
+#endif
     pkt[ndx].controller = c;
     pkt[ndx].value = v;
   }
@@ -764,12 +811,16 @@ void process_uart()
     bool is_good = read_uart_msg();
     if (is_good && check_uart_packet())
     {
-      DEBUG_UART("UART CRC PASS");
+#ifdef DEBUG_UART
+      Serial.println("UART CRC PASS");
+#endif
       interpret_uart();
     }
     else
     {
-      DEBUG_UART("UART CRC FAIL");
+#ifdef DEBUG_UART
+      Serial.println("UART CRC FAIL");
+#endif
     }
   }
 }
