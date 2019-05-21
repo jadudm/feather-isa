@@ -240,7 +240,8 @@ void board(byte r, byte g, byte b)
 
 void ribbon(byte ndx, byte r, byte g, byte b)
 {
-  ribbon_neo.setPixelColor(ndx, board_neo.Color(r / 2, g / 2, b / 2));
+  ribbon_neo.setPixelColor(ndx, ribbon_neo.Color(r, g, b));
+  // ribbon_neo.show();
 }
 
 /*
@@ -345,11 +346,19 @@ void interpret()
     break;
 
     case SET_PIXEL_AT_INDEX:
+    {
+      int ndx = pkt[2].value;
+      int r = pkt[3].value;
+      int g = pkt[4].value;
+      int b = pkt[5].value;
 #ifdef DEBUG_INTERP
       Serial.println("SET_PIXEL_AT_INDEX");
+      Serial.println("NDX " + String(ndx) + " R " + String(r) + " B " + String(b));
 #endif
-      ribbon(pkt[2].value, pkt[3].value, pkt[4].value, pkt[5].value);
-      break;
+          ribbon(ndx, r, g, b);
+          ribbon_neo.show();
+    }
+    break;
 
     case SET_PIXEL_RANGE:
     {
