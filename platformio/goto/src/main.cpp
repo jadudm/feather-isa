@@ -1,15 +1,15 @@
-#include "MIDIUSB.h"
-#include "Adafruit_NeoPixel.h"
+
+#include "types.h"
+#include "midi_machine.h"
+#include "neopixels.h"
+#include "interpreter.h"
+
 // NewPing Source
 // http://bit.ly/2EjVV4D
 // #include "NewPing.h"
 
-#define NEOPIXEL_BOARD_PIN 8
-#define NEOPIXEL_RIBBON_PIN 4
-#define NEOPIXEL_RIBBON_LENGTH 120
-#define MIDI_CHANNEL 0
-#define MIDI_PACKET_SIZE 16
-#define UART_PACKET_SIZE MIDI_PACKET_SIZE
+
+#define UART_PACKET_SIZE 16 //FIXME
 #define PIN_CHECK_INTERVAL 50
 #define MAX_SONARS 3
 #define MAX_SONAR_DISTANCE 200
@@ -18,17 +18,10 @@
 #define SERIAL1_SPEED 115200
 #define SERIAL1_TIMEOUT 18
 
-// #define DEBUG_MIDI
-// define DEBUG_UART
-// #define DEBUG_INTERP
-
 // Define if I want to periodically send out all of the
 // analog readings, even if they have not substantively change.
 // #define PERIODIC_ANALOG_REFRESH 1
 
-// https://learn.adafruit.com/adafruit-neopixel-uberguide/arduino-library-use
-Adafruit_NeoPixel board_neo(1, NEOPIXEL_BOARD_PIN, NEO_GRB + NEO_KHZ800);
-Adafruit_NeoPixel ribbon_neo(NEOPIXEL_RIBBON_LENGTH, NEOPIXEL_RIBBON_PIN, NEO_GRB + NEO_KHZ800);
 
 int analog_pins[] = {A0, A1, A2, A3, A4, A5};
 int ANALOG_PIN_COUNT = sizeof(analog_pins) / sizeof(analog_pins[0]);
@@ -38,28 +31,9 @@ int DIGITAL_PIN_COUNT = sizeof(digital_pins) / sizeof(digital_pins[0]);
 int *digital_readings = (int *)malloc(DIGITAL_PIN_COUNT * sizeof(int));
 bool *digital_changed = (bool *)malloc(DIGITAL_PIN_COUNT * sizeof(bool));
 
-typedef struct
-{
-  byte controller;
-  byte value;
-} MIDIControl;
-
-// MIDI Packets
-// We'll read in up to 16 bytes of information as a
-// "packet" of information. It is declared at compile
-// time as being limited in extend.
-MIDIControl pkt[MIDI_PACKET_SIZE];
-MIDIControl rx;
 int pin_check_clock;
 
-// UART Packets
-typedef struct
-{
-  byte controller;
-  byte value;
-} UARTControl;
-
-UARTControl uart_pkt[UART_PACKET_SIZE];
+CV uart_pkt[UART_PACKET_SIZE];
 
 void controlChange(byte channel, byte control, byte value)
 {
@@ -75,18 +49,6 @@ void controlChange(byte channel, byte control, byte value)
 dMP dMP dMMMMMP  VMMMP" dMMMMMP    dMP    VMMMP"
 
 */
-// reset : void -> void
-// Clears the entire pkt[] array, setting all values to
-// 0xFF. This makes it a bit easier to see, as no MIDI
-// value should be 255.
-void reset_midi_pkts()
-{
-  for (int ndx = 0; ndx < MIDI_PACKET_SIZE; ndx++)
-  {
-    pkt[ndx].controller = 0xFF;
-    pkt[ndx].value = 0xFF;
-  }
-}
 
 void reset_uart_pkts()
 {
@@ -98,153 +60,6 @@ void reset_uart_pkts()
 }
 
 /*
-    dMMMMb  dMMMMMP .aMMMb  dMMMMb  dMMMMMMMMb  .dMMMb  .aMMMMP
-   dMP.dMP dMP     dMP"dMP dMP VMP dMP"dMP"dMP dMP" VP dMP"
-  dMMMMK" dMMMP   dMMMMMP dMP dMP dMP dMP dMP  VMMMb  dMP MMP"
- dMP"AMF dMP     dMP dMP dMP.aMP dMP dMP dMP dP .dMP dMP.dMP
-dMP dMP dMMMMMP dMP dMP dMMMMP" dMP dMP dMP  VMMMP"  VMMMP"
-
-*/
-
-// Packet State Machine
-// This machine keeps track of things as they come in.
-enum PktRead
-{
-  MIDI_START,
-  MIDI_HEADER,
-  MIDI_LENGTH,
-  MIDI_PKTS
-};
-
-bool read_msgs()
-{
-  midiEventPacket_t rx;
-  int byte_count = 0;
-  int msg_length = 0;
-  PktRead state = MIDI_START;
-  reset_midi_pkts();
-  bool is_good_packet = false;
-
-  do
-  {
-    rx = MidiUSB.read();
-    if (rx.header != 0)
-    {
-      // Serial.print("RCV: ");
-      // Serial.print(rx.header, HEX);
-      // Serial.print("-");
-      // Serial.print(rx.byte1, HEX);
-      // Serial.print(" C ");
-      // Serial.print(rx.byte2, HEX);
-      // Serial.print(" V ");
-      // Serial.println(rx.byte3, HEX);
-
-      switch (state)
-      {
-      case MIDI_START:
-        if (rx.byte3 == 0x2A)
-        {
-#ifdef DEBUG_MIDI
-          Serial.println("-> HEADER");
-#endif
-          state = MIDI_HEADER;
-        }
-        break;
-      case MIDI_HEADER:
-        if (rx.byte3 == 0x2B)
-        {
-#ifdef DEBUG_MIDI
-          Serial.println("-> LENGTH");
-#endif
-          state = MIDI_LENGTH;
-        }
-        else
-        {
-#ifdef DEBUG_MIDI
-          Serial.println("-> START");
-#endif
-          state = MIDI_START;
-        }
-        break;
-      case MIDI_LENGTH:
-        pkt[byte_count].controller = 0xBE;
-        msg_length = rx.byte3;
-        pkt[byte_count].value = rx.byte3;
-        byte_count = byte_count + 1;
-
-#ifdef DEBUG_MIDI
-        Serial.println("LENGTH: " + String(msg_length));
-#endif
-
-        if (msg_length > MIDI_PACKET_SIZE)
-        {
-#ifdef DEBUG_MIDI
-          Serial.println("-> START");
-#endif
-          state = MIDI_START;
-        }
-        else
-        {
-#ifdef DEBUG_MIDI
-          DEBUG_MIDI("-> PKTS " + String(byte_count));
-#endif
-          state = MIDI_PKTS;
-        }
-        break;
-      case MIDI_PKTS:
-        // FIXME: In theory, a timeout could be useful here.
-        if (byte_count <= msg_length)
-        {
-          // Serial.println(" R " + String(byte_count) + " " + rx.byte3);
-          pkt[byte_count].controller = rx.byte2;
-          pkt[byte_count].value = rx.byte3;
-          byte_count = byte_count + 1;
-          state = MIDI_PKTS;
-#ifdef DEBUG_MIDI
-          DEBUG_MIDI("-> PKTS " + String(byte_count));
-#endif
-        }
-        else
-        {
-          // Serial.println("Reading CRC");
-          pkt[byte_count].controller = rx.byte2;
-          pkt[byte_count].value = rx.byte3;
-          // byte_count = byte_count + 1;
-          is_good_packet = true;
-#ifdef DEBUG_MIDI
-          DEBUG_MIDI("-> DONE");
-#endif
-          state = MIDI_START;
-        }
-        break;
-      }
-    }
-  } while (rx.header != 0);
-
-  return is_good_packet;
-}
-
-/*
-    dMMMMb  dMP dMP dMP dMMMMMP dMP    .dMMMb
-   dMP.dMP amr dMK.dMP dMP     dMP    dMP" VP
-  dMMMMP" dMP .dMMMK" dMMMP   dMP     VMMMb
- dMP     dMP dMP"AMF dMP     dMP    dP .dMP
-dMP     dMP dMP dMP dMMMMMP dMMMMMP VMMMP"
-
-*/
-void board(byte r, byte g, byte b)
-{
-  board_neo.setPixelColor(0, board_neo.Color(r / 2, g / 2, b / 2));
-  board_neo.show();
-}
-
-void ribbon(byte ndx, byte r, byte g, byte b)
-{
-  ribbon_neo.setPixelColor(ndx, ribbon_neo.Color(r, g, b));
-  // ribbon_neo.show();
-}
-
-/*
     dMMMMb  .aMMMb  .aMMMb  dMP dMP dMMMMMP dMMMMMMP .dMMMb
    dMP.dMP dMP"dMP dMP"VMP dMP.dMP dMP        dMP   dMP" VP
   dMMMMP" dMMMMMP dMP     dMMMMK" dMMMP      dMP    VMMMb
@@ -252,61 +67,6 @@ void ribbon(byte ndx, byte r, byte g, byte b)
 dMP     dMP dMP  VMMMP" dMP dMP dMMMMMP    dMP    VMMMP"
 
 */
-void show_packet()
-{
-  for (int ndx = 0; ndx < MIDI_PACKET_SIZE; ndx++)
-  {
-    if (pkt[ndx].value != 0xFF)
-    {
-#ifdef DEBUG_MIDI
-      Serial.println(String(ndx) + "[" + String(pkt[ndx].value) + "] ");
-#endif
-    }
-  }
-#ifdef DEBUG_MIDI
-  Serial.println("");
-#endif
-}
-
-bool is_valid_packet()
-{
-  int sum = 0;
-  int localcrc = 0;
-  int remcrc = 1;
-  byte byte_count = 0;
-
-  show_packet();
-  byte_count = pkt[0].value;
-
-  for (int ndx = 1; ndx <= byte_count; ndx++)
-  {
-#ifdef DEBUG_MIDI
-    DEBUG_MIDI("MIDI SUM " + String(sum) + " V " + String(pkt[ndx].value));
-#endif
-    sum = sum + pkt[ndx].value;
-  }
-#ifdef DEBUG_MIDI
-  DEBUG_MIDI("MIDI SUM " + String(sum));
-#endif
-  localcrc = sum % 128;
-  remcrc = pkt[byte_count + 1].value;
-#ifdef DEBUG_MIDI
-  DEBUG_MIDI("MIDI CRC LOCAL " + String(localcrc) + " REM " + String(remcrc));
-#endif
-  if (remcrc == localcrc)
-  {
-#ifdef DEBUG_MIDI
-    DEBUG_MIDI("MIDI CRC PASS");
-#endif
-  }
-  else
-  {
-#ifdef DEBUG_MIDI
-    DEBUG_MIDI("MIDI CRC FAIL");
-#endif
-  }
-  return (remcrc == localcrc);
-}
 
 /*
     dMP dMMMMb dMMMMMMP dMMMMMP dMMMMb  dMMMMb  dMMMMb  dMMMMMP dMMMMMMP
@@ -316,69 +76,6 @@ bool is_valid_packet()
 dMP dMP dMP   dMP   dMMMMMP dMP dMP dMP     dMP dMP dMMMMMP    dMP
 
 */
-enum MsgTypes
-{
-  SET_BOARD_PIXEL = 1,
-  SET_PIXEL_AT_INDEX = 2,
-  SET_PIXEL_RANGE = 3
-};
-
-void interpret()
-{
-  if (is_valid_packet())
-  {
-    // Serial.println("INTERP");
-    // The packet is:
-    // [0] MSG TYPE
-    // [1 ... ] Payload (per message type)
-    switch (pkt[1].value)
-    {
-    case SET_BOARD_PIXEL:
-    {
-      byte r = pkt[2].value;
-      byte g = pkt[3].value;
-      byte b = pkt[4].value;
-#ifdef DEBUG_INTERP
-      Serial.println("SET_BOARD_PIXEL " + String(r, HEX) + " " + String(g, HEX) + " " + String(b, HEX));
-#endif
-      board(r, g, b);
-    }
-    break;
-
-    case SET_PIXEL_AT_INDEX:
-    {
-      int ndx = pkt[2].value;
-      int r = pkt[3].value;
-      int g = pkt[4].value;
-      int b = pkt[5].value;
-#ifdef DEBUG_INTERP
-      Serial.println("SET_PIXEL_AT_INDEX");
-      Serial.println("NDX " + String(ndx) + " R " + String(r) + " B " + String(b));
-#endif
-          ribbon(ndx, r, g, b);
-          ribbon_neo.show();
-    }
-    break;
-
-    case SET_PIXEL_RANGE:
-    {
-      int start = pkt[2].value;
-      int end = pkt[3].value;
-
-#ifdef DEBUG_INTERP
-      Serial.println("SET_PIXEL_RANGE");
-      Serial.println("S " + String(start) + " E " + String(end));
-#endif
-      for (int ndx = start; ndx < end; ndx++)
-      {
-        ribbon(ndx, pkt[4].value, pkt[5].value, pkt[6].value);
-      }
-      ribbon_neo.show();
-    }
-    break;
-    }
-  }
-}
 
 int scale_analog(int reading)
 {
@@ -427,10 +124,11 @@ void setup()
   Serial1.begin(SERIAL1_SPEED);
 
   delay(1000);
-  // Initialize Neopixels
-  board_neo.begin();
-  ribbon_neo.begin();
 
+  // Init Neopixels
+  board_init();
+  ribbon_init();
+  
   // Flush the MIDI buffer, if there is one.
   for (int i = 0; i < 60; i++)
   {
@@ -456,8 +154,8 @@ void process_midi_in()
 {
   bool is_good_pkt;
 
-  is_good_pkt = read_msgs();
-  if (is_good_pkt)
+  is_good_pkt = read_midi_message();
+  if (is_good_pkt && is_valid_midi_buffer())
   {
     // Assumes that pkt is global, and in good health.
     interpret();
@@ -806,8 +504,8 @@ void interpret_uart()
 #ifdef DEBUG_UART
     Serial.println("pkt[" + String(ndx) + "] c[" + String(c) + "] v[" + String(v) + "]");
 #endif
-    pkt[ndx].controller = c;
-    pkt[ndx].value = v;
+    uart_pkt[ndx].controller = c;
+    uart_pkt[ndx].value = v;
   }
   interpret();
 }
