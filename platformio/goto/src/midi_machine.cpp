@@ -57,6 +57,7 @@ bool read_midi_message()
         if (rx.byte3 == 0x2A)
         {
           state = MIDI_HEADER;
+          Serial1.println("M1");
         }
         break;
 
@@ -64,10 +65,12 @@ bool read_midi_message()
         if (rx.byte3 == 0x2B)
         {
           state = MIDI_LENGTH;
+          Serial1.println("M2");
         }
         else
         {
           state = MIDI_START;
+          Serial1.println("MS");
         }
         break;
       
@@ -86,10 +89,12 @@ bool read_midi_message()
         if (expected_length > PACKET_SIZE)
         {
           state = MIDI_START;
+          Serial1.println("MS");
         }
         else
         {
           state = MIDI_COMMAND;
+          Serial1.println("M3");
         }
         break;
         
@@ -106,6 +111,7 @@ bool read_midi_message()
         midi_buffer[byte_count].value = rx.byte3;
         byte_count = byte_count + 1;
         state = MIDI_BODY;
+        Serial1.println("M4");
         break;
 
       case MIDI_BODY:
@@ -125,39 +131,19 @@ bool read_midi_message()
           // Report a good read.
           is_good_packet = true;
           state = MIDI_START;
+          Serial1.println("MS");
         }
         break;
       }
     }
   } while ((rx.header != 0) && (byte_count < PACKET_SIZE));
 
+  Serial1.println("MGOOD");
   return is_good_packet;
 }
 
-bool is_valid_midi_buffer()
-{
-  int sum = 0;
-  int localcrc = 0;
-  int remcrc = 1;
-  byte byte_count = 0;
-  byte_count = midi_buffer[0].value;
-
-  for (int ndx = 1; ndx <= byte_count; ndx++)
-  {
-    sum = sum + midi_buffer[ndx].value;
-  }
-  localcrc = sum % 128;
-  remcrc = midi_buffer[byte_count + 1].value;
-  if (remcrc == localcrc)
-  {
-  }
-  else
-  {
-  }
-  return (remcrc == localcrc);
-}
-
 void copy_midi_buffer() {
+  Serial1.println("MCOPY");
   for (int ndx = 0; ndx < PACKET_SIZE ; ndx++) {
     buffer[ndx] = midi_buffer[ndx];
   }

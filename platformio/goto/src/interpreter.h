@@ -9,5 +9,6 @@ enum MsgTypes
 };
 
 void interpret();
+bool is_valid_buffer_crc();
 
 #endif

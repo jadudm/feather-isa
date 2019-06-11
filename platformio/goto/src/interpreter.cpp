@@ -4,6 +4,22 @@
 
 CV buffer[PACKET_SIZE];
 
+bool is_valid_buffer_crc() {
+  int sum = 0;
+  int localcrc = 0;
+  int remcrc = 1;
+  byte byte_count = 0;
+  byte_count = buffer[0].value;
+
+  for (int ndx = 1; ndx <= byte_count; ndx++)
+  {
+    sum = sum + buffer[ndx].value;
+  }
+  localcrc = sum % 128;
+  remcrc = buffer[byte_count + 1].value;
+  return (remcrc == localcrc);
+}
+
 void interpret()
 {
 
